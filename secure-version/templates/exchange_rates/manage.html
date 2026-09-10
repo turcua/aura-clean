@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Exchange Rates - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 page-header">
+    <h1 class="page-title mb-0">Exchange Rates</h1>
+</div>
+
+<p style="color:var(--ts);max-width:60ch;">
+    Rates are stored as "1 unit of currency = X RON" — RON is the base
+    currency and always 1.0. Editing a rate here affects every account,
+    dashboard total, and report that reads it.
+</p>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px;align-items:start;">
+
+    <div class="glass-card" style="grid-column:1/-1;">
+        <div class="glass-card-header">
+            <span class="glass-card-title">Rates to RON (base)</span>
+        </div>
+        <!-- BUG-09 fix (2026-09-02): .glass-table tbody tr:hover (glass.css)
+             shifts the hovered row via transform:translateX(4px) — since
+             transforms don't affect layout, this only shows up as a new
+             "scrollable overflow" region on hover, momentarily flashing a
+             horizontal scrollbar when a row's shifted ink pixels exceed
+             this wrapper's normal content edge. Rather than touch the
+             shared hover effect (used by tables site-wide), a small
+             negative-margin + matching padding "bleed" on this specific
+             wrapper gives the shift 6px of headroom to occupy without
+             ever creating genuine new overflow, while the table's visible
+             position/size in the non-hover state stays unchanged (the
+             card's own 22px padding comfortably absorbs borrowing 6px). -->
+        <div style="overflow-x:auto;margin-right:-6px;padding-right:6px;">
+            <table class="glass-table" id="ratesTable">
+                <thead>
+                    <tr>
+                        <th>Currency</th>
+                        <th>Rate to RON</th>
+                        <th>Last Updated</th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="ratesTableBody">
+                    <tr>
+                        <td colspan="5" style="text-align:center;padding:24px 0;">
+                            <div class="glass-spinner mx-auto mb-2"></div>
+                            Loading rates...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <div class="glass-card-header">
+            <span class="glass-card-title">Add / Update Rate</span>
+        </div>
+        <div style="padding:16px 20px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <div class="form-group-glass" style="flex:1;min-width:120px;margin-bottom:0;">
+                <label class="form-label-glass">Currency Code</label>
+                <input type="text" class="glass-input" id="newCurrencyCode" placeholder="e.g. GBP" maxlength="3" style="text-transform:uppercase;">
+            </div>
+            <div class="form-group-glass" style="flex:1;min-width:120px;margin-bottom:0;">
+                <label class="form-label-glass">Rate to RON</label>
+                <input type="number" class="glass-input" id="newRateValue" step="0.000001" min="0.000001" placeholder="e.g. 6.50">
+            </div>
+            <div class="form-group-glass" style="margin-bottom:0;">
+                <label class="form-label-glass" style="visibility:hidden;">Add</label>
+                <button type="button" class="btn btn-secondary" id="addCurrencyBtn">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <div class="glass-card-header">
+            <span class="glass-card-title">Currency Calculator</span>
+        </div>
+        <div style="padding:16px 20px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+            <div class="form-group-glass" style="flex:1;min-width:70px;margin-bottom:0;">
+                <label class="form-label-glass">Amount</label>
+                <input type="number" class="glass-input" id="calcAmount" step="0.01" value="1">
+            </div>
+            <div class="form-group-glass" style="width:80px;margin-bottom:0;">
+                <label class="form-label-glass">From</label>
+                <select class="glass-select" id="calcFrom" style="width:80px;"></select>
+            </div>
+            <div class="form-group-glass" style="width:80px;margin-bottom:0;">
+                <label class="form-label-glass">To</label>
+                <select class="glass-select" id="calcTo" style="width:80px;"></select>
+            </div>
+            <div class="form-group-glass" style="margin-bottom:0;">
+                <label class="form-label-glass" style="visibility:hidden;">Convert</label>
+                <button type="button" class="btn btn-secondary" id="calcConvertBtn">Convert</button>
+            </div>
+            <div id="calcResult" style="font-size:1.1rem;color:var(--tp);"></div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/exchange_rates.js') }}"></script>
+{% endblock %}

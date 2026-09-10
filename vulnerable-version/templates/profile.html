@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-7 col-lg-6 mx-auto">
+        <h1 class="page-title mb-4">User Profile</h1>
+
+        <div class="glass-card no-hover">
+            <div style="padding:28px 32px;">
+                <!-- VULNERABILITY: XSS - User data not sanitized -->
+                <div class="row mb-3 align-items-center">
+                    <div class="col-4" style="color:var(--th);font-size:0.78rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;">Username</div>
+                    <div class="col-8">{{ user.username|safe }}</div>
+                </div>
+                <div class="glass-divider"></div>
+
+                <div class="row mb-3 mt-3 align-items-center">
+                    <div class="col-4" style="color:var(--th);font-size:0.78rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;">Email</div>
+                    <div class="col-8">{{ user.email|safe }}</div>
+                </div>
+                <div class="glass-divider"></div>
+
+                <div class="row mb-3 mt-3 align-items-center">
+                    <div class="col-4" style="color:var(--th);font-size:0.78rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;">User ID</div>
+                    <div class="col-8">{{ user.id }}</div>
+                </div>
+                <div class="glass-divider"></div>
+
+                <!-- VULNERABILITY: Information disclosure - Password shown -->
+                <div class="row mb-3 mt-3 align-items-center">
+                    <div class="col-4" style="color:var(--th);font-size:0.78rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;">Password</div>
+                    <div class="col-8"><code style="color:var(--ac);">{{ user.password }}</code></div>
+                </div>
+
+                <div class="glass-divider my-3"></div>
+
+                <!-- Sprint 52 (ENH-04) -->
+                <div class="row mb-3 align-items-center">
+                    <div class="col-4" style="color:var(--th);font-size:0.78rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;">Two-Factor Auth</div>
+                    <div class="col-8">
+                        {% if user.totp_enabled %}
+                            <span class="glass-badge badge-income">Enabled</span>
+                            <form method="POST" action="{{ url_for('auth.disable_2fa') }}" class="mt-2 d-flex gap-2 align-items-center">
+                                <input type="text" class="glass-input" name="code" placeholder="Enter code to disable" style="max-width:200px;">
+                                <button type="submit" class="btn-glass btn-glass-secondary" style="padding:6px 14px;font-size:0.8rem;">Disable</button>
+                            </form>
+                        {% else %}
+                            <span class="glass-badge">Disabled</span>
+                            <a href="{{ url_for('auth.setup_2fa') }}" class="btn-glass btn-glass-secondary d-block mt-2" style="padding:6px 14px;font-size:0.8rem;width:fit-content;">Enable 2FA</a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="glass-divider my-3"></div>
+
+                <div class="alert alert-warning" role="alert">
+                    <strong>Hint:</strong> Try accessing other users' profiles using <code>?user_id=X</code> parameter (IDOR vulnerability)
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

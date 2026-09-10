@@ -1,0 +1,156 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: {{ .Values.monitoring.namespace }}
+data:
+  datasource.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus.{{ .Values.monitoring.namespace }}.svc.cluster.local:9090
+        isDefault: true
+        editable: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: {{ .Values.monitoring.namespace }}
+data:
+  provider.yml: |
+    apiVersion: 1
+    providers:
+      - name: Aura
+        orgId: 1
+        folder: Aura
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-aura
+  namespace: {{ .Values.monitoring.namespace }}
+data:
+  aura-overview.json: |
+    {
+      "title": "Aura — Application Overview",
+      "uid": "aura-overview",
+      "schemaVersion": 39,
+      "version": 1,
+      "timezone": "browser",
+      "time": { "from": "now-6h", "to": "now" },
+      "panels": [
+        {
+          "id": 1, "title": "Request rate by version (req/s)", "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "targets": [
+            { "expr": "sum(rate(flask_http_request_total{namespace=\"{{ .Values.secure.namespace }}\"}[5m]))", "legendFormat": "secure" },
+            { "expr": "sum(rate(flask_http_request_total{namespace=\"{{ .Values.vulnerable.namespace }}\"}[5m]))", "legendFormat": "vulnerable" }
+          ]
+        },
+        {
+          "id": 2, "title": "5xx error rate by version (req/s)", "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "targets": [
+            { "expr": "sum(rate(flask_http_request_total{namespace=\"{{ .Values.secure.namespace }}\", status=~\"5..\"}[5m]))", "legendFormat": "secure" },
+            { "expr": "sum(rate(flask_http_request_total{namespace=\"{{ .Values.vulnerable.namespace }}\", status=~\"5..\"}[5m]))", "legendFormat": "vulnerable" }
+          ]
+        },
+        {
+          "id": 3, "title": "p95 request latency by version (s)", "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "targets": [
+            { "expr": "histogram_quantile(0.95, sum(rate(flask_http_request_duration_seconds_bucket{namespace=\"{{ .Values.secure.namespace }}\"}[5m])) by (le))", "legendFormat": "secure" },
+            { "expr": "histogram_quantile(0.95, sum(rate(flask_http_request_duration_seconds_bucket{namespace=\"{{ .Values.vulnerable.namespace }}\"}[5m])) by (le))", "legendFormat": "vulnerable" }
+          ]
+        },
+        {
+          "id": 4, "title": "MySQL up", "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "targets": [
+            { "expr": "mysql_up{app=\"mysql-exporter-secure\"}", "legendFormat": "secure" },
+            { "expr": "mysql_up{app=\"mysql-exporter-vulnerable\"}", "legendFormat": "vulnerable" }
+          ]
+        },
+        {
+          "id": 5, "title": "MySQL current connections", "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+          "targets": [
+            { "expr": "mysql_global_status_threads_connected{app=\"mysql-exporter-secure\"}", "legendFormat": "secure" },
+            { "expr": "mysql_global_status_threads_connected{app=\"mysql-exporter-vulnerable\"}", "legendFormat": "vulnerable" }
+          ]
+        },
+        {
+          "id": 6, "title": "Pod count by version", "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+          "targets": [
+            { "expr": "count(up{namespace=\"{{ .Values.secure.namespace }}\", app=\"app-secure\"})", "legendFormat": "secure" },
+            { "expr": "count(up{namespace=\"{{ .Values.vulnerable.namespace }}\", app=\"app-vulnerable\"})", "legendFormat": "vulnerable" }
+          ]
+        }
+      ]
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: {{ .Values.monitoring.namespace }}
+  labels: { app: grafana }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: grafana }
+  template:
+    metadata:
+      labels: { app: grafana }
+    spec:
+      containers:
+        - name: grafana
+          image: {{ .Values.monitoring.grafana.image }}
+          ports: [{ containerPort: 3000 }]
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: {{ .Values.monitoring.grafana.adminUser | quote }}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: {{ .Values.monitoring.grafana.adminPassword | quote }}
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+          volumeMounts:
+            - { name: datasources, mountPath: /etc/grafana/provisioning/datasources }
+            - { name: dashboard-provider, mountPath: /etc/grafana/provisioning/dashboards }
+            - { name: dashboards, mountPath: /var/lib/grafana/dashboards }
+          resources:
+            {{- toYaml .Values.monitoring.grafana.resources | nindent 12 }}
+          readinessProbe:
+            httpGet: { path: /api/health, port: 3000 }
+            initialDelaySeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/health, port: 3000 }
+            initialDelaySeconds: 20
+      volumes:
+        - name: datasources
+          configMap: { name: grafana-datasources }
+        - name: dashboard-provider
+          configMap: { name: grafana-dashboard-provider }
+        - name: dashboards
+          configMap: { name: grafana-dashboard-aura }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: {{ .Values.monitoring.namespace }}
+spec:
+  selector: { app: grafana }
+  ports: [{ port: 3000, targetPort: 3000 }]
+  type: ClusterIP
+{{- end }}

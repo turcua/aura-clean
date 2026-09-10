@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+{% block title %}Budgets - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 page-header">
+    <h1 class="page-title mb-0">Budget Planner</h1>
+    <button class="btn-glass btn-glass-secondary" data-bs-toggle="modal" data-bs-target="#addBudgetModal">
+        New Budget
+    </button>
+</div>
+
+<div class="glass-grid glass-grid-2" id="budgetsList">
+    <div style="grid-column:1/-1;text-align:center;padding:40px 0;">
+        <div class="glass-spinner mx-auto mb-2"></div>
+        <p style="color:var(--th);">Loading budgets...</p>
+    </div>
+</div>
+
+<!-- ADD BUDGET MODAL -->
+<div class="modal fade" id="addBudgetModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">New Budget</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addBudgetForm">
+                    <input type="hidden" name="user_id" value="{{ session.user_id }}">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Budget Name</label>
+                                <input type="text" class="glass-input" name="name" placeholder="e.g., June 2026" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Period</label>
+                                <select class="glass-select" name="period_type" id="addPeriodType" onchange="autoFillDates('add')">
+                                    <option value="monthly">Monthly</option>
+                                    <option value="yearly">Yearly</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Start Date</label>
+                                <input type="date" class="glass-input" name="start_date" id="addStartDate" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">End Date</label>
+                                <input type="date" class="glass-input" name="end_date" id="addEndDate" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Total Limit (RON)</label>
+                                <input type="number" class="glass-input" name="total_limit" step="0.01" min="0" required>
+                            </div>
+                        </div>
+                    </div>
+                    <hr style="border-color:var(--gb);opacity:1;margin:8px 0 16px;">
+                    <h6 style="color:var(--ts);margin-bottom:12px;">Category Limits (optional)</h6>
+                    <div id="addCategoryLimits"></div>
+                    <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="addCategoryLimitRow('add')">Add Category Limit</button>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="saveBudgetBtn">Save Budget</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const currentUserId = {{ session.user_id }};
+let allCategories = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadCategories();
+    loadBudgets();
+    autoFillDates('add');
+    document.getElementById('saveBudgetBtn').addEventListener('click', saveBudget);
+});
+
+function loadCategories() {
+    fetch(`/api/categories/list?user_id=${currentUserId}`)
+        .then(r => r.json())
+        .then(data => { if (data.success) allCategories = data.categories; });
+}
+
+function autoFillDates(prefix) {
+    const period = document.getElementById(prefix + 'PeriodType').value;
+    const today = new Date();
+    let start, end;
+    if (period === 'monthly') {
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    } else if (period === 'yearly') {
+        start = new Date(today.getFullYear(), 0, 1);
+        end = new Date(today.getFullYear(), 11, 31);
+    } else {
+        return;
+    }
+    document.getElementById(prefix + 'StartDate').value = start.toISOString().split('T')[0];
+    document.getElementById(prefix + 'EndDate').value = end.toISOString().split('T')[0];
+}
+
+// ENH-15/Sprint 57: searchable combobox for a dynamically-added budget row,
+// same pattern as ENH-10 (transaction form) — scoped to this row's own
+// elements via closures instead of ids, since rows aren't unique by id.
+function categoryOptionLabel(c) {
+    return `[${c.type}] ${c.name}`;
+}
+
+function wireCategoryRowCombobox(row) {
+    const input = row.querySelector('.cat-search-input');
+    const hidden = row.querySelector('[name=cat_id]');
+    const dropdown = row.querySelector('.cat-search-dropdown');
+
+    function selectCategory(c) {
+        hidden.value = c.id;
+        input.value = categoryOptionLabel(c);
+        dropdown.style.display = 'none';
+    }
+
+    function render(filterText) {
+        const filter = (filterText || '').toLowerCase();
+        const matches = allCategories.filter(c => categoryOptionLabel(c).toLowerCase().includes(filter));
+        dropdown.innerHTML = '';
+        if (matches.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'searchable-select-empty';
+            empty.textContent = 'No matching categories';
+            dropdown.appendChild(empty);
+        } else {
+            matches.forEach(c => {
+                const opt = document.createElement('div');
+                opt.className = 'searchable-select-option';
+                opt.textContent = categoryOptionLabel(c);
+                opt.addEventListener('mousedown', (e) => { e.preventDefault(); selectCategory(c); });
+                dropdown.appendChild(opt);
+            });
+        }
+        dropdown.style.display = 'block';
+    }
+
+    input.addEventListener('input', () => { hidden.value = ''; render(input.value); });
+    input.addEventListener('focus', () => render(input.value));
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const filter = input.value.toLowerCase();
+            const firstMatch = allCategories.find(c => categoryOptionLabel(c).toLowerCase().includes(filter));
+            if (firstMatch) selectCategory(firstMatch);
+        } else if (e.key === 'Escape') {
+            dropdown.style.display = 'none';
+        }
+    });
+    input.addEventListener('blur', () => {
+        setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+    });
+}
+
+function addCategoryLimitRow(prefix) {
+    const container = document.getElementById(prefix + 'CategoryLimits');
+    const row = document.createElement('div');
+    row.className = 'row mb-2 category-limit-row';
+    row.innerHTML = `
+        <div class="col-7" style="position:relative;">
+            <input type="text" class="glass-input cat-search-input" autocomplete="off" placeholder="Search or select category…">
+            <input type="hidden" name="cat_id">
+            <div class="searchable-select-dropdown cat-search-dropdown" style="display:none;"></div>
+        </div>
+        <div class="col-4">
+            <input type="number" class="glass-input" name="cat_limit" placeholder="Limit $" step="0.01" min="0">
+        </div>
+        <div class="col-1">
+            <button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('.category-limit-row').remove()">✕</button>
+        </div>`;
+    container.appendChild(row);
+    wireCategoryRowCombobox(row);
+}
+
+function loadBudgets() {
+    fetch(`/api/budgets/list?user_id=${currentUserId}`)
+        .then(r => r.json())
+        .then(data => {
+            const container = document.getElementById('budgetsList');
+            if (!data.success || data.budgets.length === 0) {
+                container.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--th);padding:40px 0;"><p>No budgets yet. Create your first budget!</p></div>';
+                return;
+            }
+            container.innerHTML = '';
+            data.budgets.forEach(b => container.appendChild(buildBudgetCard(b)));
+        });
+}
+
+function buildBudgetCard(b) {
+    const card = document.createElement('div');
+    card.className = 'glass-card';
+    card.style.cssText = 'display:flex;flex-direction:column;';
+
+    fetch(`/api/budgets/${b.id}`)
+        .then(r => r.json())
+        .then(detail => {
+            const limits = detail.category_limits || [];
+            const totalSpent = limits.reduce((s, l) => s + (l.spent || 0), 0);
+            const pct = b.total_limit > 0 ? Math.min((totalSpent / b.total_limit) * 100, 100) : 0;
+            const barClass = pct >= 90 ? 'bg-danger' : pct >= 70 ? 'bg-warning' : '';
+
+            card.innerHTML = `
+                <div class="glass-card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                    <span class="glass-card-title">${b.name}</span>
+                    <span class="glass-badge">${b.period_type}</span>
+                </div>
+                <div style="padding:16px 20px;flex:1;">
+                    <p style="color:var(--ts);font-size:0.85rem;margin-bottom:8px;">${b.start_date} → ${b.end_date}</p>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Total: ${formatMoney(totalSpent, 'RON')} / ${formatMoney(b.total_limit, 'RON')}</span>
+                        <span>${pct.toFixed(0)}%</span>
+                    </div>
+                    <div class="progress mb-3">
+                        <div class="progress-bar ${barClass}" style="width:${pct}%"></div>
+                    </div>
+                    ${limits.length > 0 ? `
+                    <div style="overflow-x:auto;">
+                    <table class="glass-table">
+                        <tbody>
+                            ${limits.map(l => {
+                                const lPct = l.limit_amount > 0 ? Math.min((l.spent / l.limit_amount)*100,100) : 0;
+                                const lBar = lPct >= 90 ? 'bg-danger' : lPct >= 70 ? 'bg-warning' : '';
+                                return `<tr>
+                                    <td>${l.category_name || 'Unknown'}</td>
+                                    <td>${formatMoney(l.spent||0, 'RON')} / ${formatMoney(l.limit_amount, 'RON')}</td>
+                                    <td width="100"><div class="progress" style="height:8px;"><div class="progress-bar ${lBar}" style="width:${lPct}%"></div></div></td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                    </div>` : '<p style="color:var(--ts);font-size:0.85rem;">No category limits set.</p>'}
+                </div>
+                <div style="padding:12px 20px;border-top:1px solid var(--gb);margin-top:auto;">
+                    <button class="btn btn-sm btn-secondary" onclick="deleteBudget(${b.id}, '${b.name}')">Delete</button>
+                </div>`;
+        });
+
+    return card;
+}
+
+function saveBudget() {
+    const form = document.getElementById('addBudgetForm');
+    const fd = new FormData(form);
+
+    const catRows = document.querySelectorAll('#addCategoryLimits .category-limit-row');
+    const categoryLimits = [];
+    catRows.forEach(row => {
+        const catId = row.querySelector('[name=cat_id]').value;
+        const limit = row.querySelector('[name=cat_limit]').value;
+        if (catId && limit) categoryLimits.push({category_id: catId, limit_amount: parseFloat(limit)});
+    });
+
+    const data = {
+        user_id: fd.get('user_id'),
+        name: fd.get('name'),
+        period_type: fd.get('period_type'),
+        start_date: fd.get('start_date'),
+        end_date: fd.get('end_date'),
+        total_limit: fd.get('total_limit'),
+        category_limits: categoryLimits
+    };
+
+    fetch('/api/budgets/create', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)})
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({icon:'success', title:'Budget Created!', timer:1500, showConfirmButton:false});
+                bootstrap.Modal.getInstance(document.getElementById('addBudgetModal')).hide();
+                form.reset();
+                loadBudgets();
+            } else {
+                Swal.fire({icon:'error', title:'Error', text:data.message});
+            }
+        });
+}
+
+function deleteBudget(budgetId, budgetName) {
+    Swal.fire({title:'Delete Budget?', text:`Delete "${budgetName}"?`, icon:'warning',
+        showCancelButton:true, confirmButtonColor:'#dc3545', confirmButtonText:'Delete'
+    }).then(result => {
+        if (result.isConfirmed) {
+            fetch(`/api/budgets/${budgetId}/delete`, {method:'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) { Swal.fire({icon:'success', title:'Deleted!', timer:1500, showConfirmButton:false}); loadBudgets(); }
+                    else { Swal.fire({icon:'error', title:'Error', text:data.message}); }
+                });
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}Recurring Transactions - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 page-header">
+    <h1 class="page-title mb-0">Recurring Transactions</h1>
+    <div class="d-flex gap-2">
+        <button class="btn btn-secondary" id="runNowBtn">Run Now</button>
+        <button class="btn-glass btn-glass-secondary" data-bs-toggle="modal" data-bs-target="#addRecurringModal">
+            Add Recurring
+        </button>
+    </div>
+</div>
+
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-recurring" type="button">All</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="active-tab" data-bs-toggle="tab" data-bs-target="#active-recurring" type="button">Active</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="paused-tab" data-bs-toggle="tab" data-bs-target="#paused-recurring" type="button">Paused</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="templates-tab" data-bs-toggle="tab" data-bs-target="#templates-recurring" type="button">Templates</button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="all-recurring"><div id="allRecurringList"></div></div>
+    <div class="tab-pane fade" id="active-recurring"><div id="activeRecurringList"></div></div>
+    <div class="tab-pane fade" id="paused-recurring"><div id="pausedRecurringList"></div></div>
+    <div class="tab-pane fade" id="templates-recurring"><div id="templatesList"></div></div>
+</div>
+
+<!-- ADD RECURRING MODAL -->
+<div class="modal fade" id="addRecurringModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Recurring Transaction</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addRecurringForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Type</label>
+                                <select class="glass-select" name="type" id="addRType">
+                                    <option value="expense">Expense</option>
+                                    <option value="income">Income</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Amount</label>
+                                <input type="number" class="glass-input" name="amount" step="0.01" min="0.01" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Account</label>
+                                <select class="glass-select" name="account_id" id="addRAccount"></select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <!-- ENH-15/Sprint 57: searchable combobox, same pattern as
+                                 ENH-10 (transaction form) — hidden input keeps
+                                 name="category_id" id="addRCategory" so saveRecurring()
+                                 needs no changes. -->
+                            <div class="form-group-glass" style="position:relative;">
+                                <label for="addRCategorySearchInput" class="form-label-glass">Category</label>
+                                <input type="text" class="glass-input" id="addRCategorySearchInput" autocomplete="off" placeholder="Search or select category…">
+                                <input type="hidden" id="addRCategory" name="category_id">
+                                <div id="addRCategoryDropdown" class="searchable-select-dropdown" style="display:none;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Description</label>
+                        <input type="text" class="glass-input" name="description" maxlength="255" placeholder="e.g., Monthly Rent">
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Link to Loan <span style="color:var(--th);">(optional — Sprint 51: keeps the generated amount in sync with the loan's current computed installment instead of the fixed amount above)</span></label>
+                        <select class="glass-select" name="loan_id" id="addRLoan">
+                            <option value="">No loan</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Frequency</label>
+                                <select class="glass-select" name="frequency">
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly" selected>Monthly</option>
+                                    <option value="yearly">Yearly</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Start Date</label>
+                                <input type="date" class="glass-input" name="start_date" id="addStartDate" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">End Date (optional)</label>
+                                <input type="date" class="glass-input" name="end_date">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="saveAsTemplate" name="is_template" value="true">
+                    <label class="form-check-label" for="saveAsTemplate">Save as Template only</label>
+                </div>
+                <div>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-secondary" id="saveRecurringBtn">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- USE TEMPLATE MODAL -->
+<div class="modal fade" id="useTemplateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Use Template: <span id="templateModalName"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="useTemplateId">
+                <div class="form-group-glass">
+                    <label class="form-label-glass">Start Date</label>
+                    <input type="date" class="glass-input" id="useTemplateStart">
+                </div>
+                <div class="form-group-glass">
+                    <label class="form-label-glass">End Date (optional)</label>
+                    <input type="date" class="glass-input" id="useTemplateEnd">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="confirmUseTemplateBtn">Activate</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT RECURRING MODAL -->
+<div class="modal fade" id="editRecurringModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Recurring Transaction</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editRecurringForm">
+                    <input type="hidden" name="rt_id" id="editRtId">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Type</label>
+                                <select class="glass-select" name="type" id="editRType">
+                                    <option value="expense">Expense</option>
+                                    <option value="income">Income</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Amount</label>
+                                <input type="number" class="glass-input" name="amount" id="editRAmount" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Account</label>
+                                <select class="glass-select" name="account_id" id="editRAccount"></select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group-glass" style="position:relative;">
+                                <label for="editRCategorySearchInput" class="form-label-glass">Category</label>
+                                <input type="text" class="glass-input" id="editRCategorySearchInput" autocomplete="off" placeholder="Search or select category…">
+                                <input type="hidden" id="editRCategory" name="category_id">
+                                <div id="editRCategoryDropdown" class="searchable-select-dropdown" style="display:none;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Description</label>
+                        <input type="text" class="glass-input" name="description" id="editRDesc" maxlength="255">
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Link to Loan <span style="color:var(--th);">(optional — Sprint 51: keeps the generated amount in sync with the loan's current computed installment instead of the fixed amount above)</span></label>
+                        <select class="glass-select" name="loan_id" id="editRLoan">
+                            <option value="">No loan</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Frequency</label>
+                                <select class="glass-select" name="frequency" id="editRFreq">
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="yearly">Yearly</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Start Date</label>
+                                <input type="date" class="glass-input" name="start_date" id="editRStart">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">End Date</label>
+                                <input type="date" class="glass-input" name="end_date" id="editREnd">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="updateRecurringBtn">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/recurring.js') }}"></script>
+{% endblock %}

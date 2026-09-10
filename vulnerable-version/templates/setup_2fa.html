@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Set Up Two-Factor Auth - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-center align-items-center" style="min-height:70vh;">
+    <div style="width:100%;max-width:460px;">
+        <div class="glass-card no-hover">
+            <div style="padding:40px;">
+                <h2 class="page-title text-center mb-2" style="font-size:1.5rem;">Set Up Two-Factor Authentication</h2>
+                <p class="text-center mb-4" style="color:var(--ts);font-size:0.875rem;">Scan with Google Authenticator, then enter the 6-digit code to confirm.</p>
+
+                <div class="text-center my-4">
+                    <img src="{{ qr_data_uri }}" alt="2FA QR code" style="max-width:220px;border-radius:8px;">
+                </div>
+
+                <p style="color:var(--th);font-size:0.8rem;">Can't scan? Enter this key manually: <code>{{ secret }}</code></p>
+
+                <!-- VULNERABILITY: No CSRF protection -->
+                <form method="POST" action="{{ url_for('auth.setup_2fa') }}">
+                    <div class="form-group-glass">
+                        <label for="code" class="form-label-glass">6-digit code</label>
+                        <input type="text" class="glass-input" id="code" name="code" inputmode="numeric" placeholder="123456">
+                    </div>
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn-glass btn-glass-secondary btn-lg">Confirm & Enable</button>
+                    </div>
+                </form>
+
+                <div class="glass-divider my-4"></div>
+
+                <p class="text-center mb-0" style="font-size:0.875rem;">
+                    <a href="{{ url_for('main.profile') }}">Cancel</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

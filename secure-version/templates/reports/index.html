@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Reports & Export - {{ app_name }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title mb-4">Reports & Export</h1>
+
+<!-- Filters -->
+<div class="glass-card no-hover mb-4">
+    <div class="glass-card-header">
+        <span class="glass-card-title">Filters</span>
+    </div>
+    <div style="padding:16px 20px;">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label-glass">From Date</label>
+                <input type="date" class="glass-input" id="filterFrom">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label-glass">To Date</label>
+                <input type="date" class="glass-input" id="filterTo">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label-glass">Type</label>
+                <select class="glass-select" id="filterType">
+                    <option value="">All</option>
+                    <option value="income">Income</option>
+                    <option value="expense">Expense</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button class="btn btn-secondary w-100" id="generateBtn">Generate</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Buttons -->
+<div class="glass-card no-hover mb-4">
+    <div class="glass-card-header">
+        <span class="glass-card-title">Export Transactions</span>
+    </div>
+    <div style="padding:16px 20px;display:flex;gap:12px;flex-wrap:wrap;">
+        <button class="btn btn-secondary" id="exportCsvBtn">Export CSV</button>
+        <button class="btn btn-secondary" id="exportPdfBtn">Export PDF</button>
+        <button class="btn btn-secondary" id="exportExcelBtn">Export Excel</button>
+    </div>
+</div>
+
+<!-- Import Section -->
+<div class="glass-card no-hover mb-4">
+    <div class="glass-card-header">
+        <span class="glass-card-title">Import Transactions</span>
+    </div>
+    <div style="padding:16px 20px;">
+        <p style="color:var(--ts);font-size:0.85rem;margin-bottom:12px;">
+            CSV must have columns: <code>Date, Type, Amount, Description, Category</code>.
+            OFX (<code>.ofx</code>/<code>.qfx</code>) and QIF (<code>.qif</code>) bank statement
+            files are also accepted — pick a destination account for those.
+        </p>
+        <div class="d-flex gap-3 align-items-center flex-wrap">
+            <input type="file" class="glass-input" id="importFile" accept=".csv,.txt,.ofx,.qfx,.qif" style="flex:1;min-width:200px;">
+            <select class="glass-select" id="importAccount" style="display:none;flex:0 0 220px;">
+                <option value="">Select destination account…</option>
+            </select>
+            <button class="btn btn-secondary" id="importBtn">Import</button>
+        </div>
+        <div id="importResult" class="mt-3"></div>
+    </div>
+</div>
+
+<!-- Report Charts -->
+<div class="row" id="reportCharts" style="display:none;">
+    <div class="col-md-6 mb-4">
+        <div class="glass-card no-hover">
+            <div class="glass-card-header">
+                <span class="glass-card-title">Spending by Category</span>
+            </div>
+            <div style="padding:16px 20px;">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="glass-card no-hover">
+            <div class="glass-card-header">
+                <span class="glass-card-title">Income vs Expenses by Month</span>
+            </div>
+            <div style="padding:16px 20px;">
+                <canvas id="monthChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 mb-4">
+        <div class="glass-card no-hover">
+            <div class="glass-card-header">
+                <span class="glass-card-title">Spending by Account</span>
+            </div>
+            <div style="padding:16px 20px;">
+                <canvas id="accountChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Table -->
+    <div class="col-12 mb-4">
+        <div class="glass-card no-hover">
+            <div class="glass-card-header">
+                <span class="glass-card-title">Category Breakdown</span>
+            </div>
+            <div style="padding:16px 20px;overflow-x:auto;">
+                <table class="glass-table" id="categoryTable">
+                    <thead><tr><th>Category</th><th>Type</th><th>Total</th><th>Count</th></tr></thead>
+                    <tbody id="categoryTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
+{% endblock %}

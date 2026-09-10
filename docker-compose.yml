@@ -1,0 +1,173 @@
+services:
+  # MySQL Database for Secure Version
+  mysql-secure:
+    image: mysql:8.0
+    container_name: aura-mysql-secure
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: SecureRootPass123!
+      MYSQL_DATABASE: aura_secure
+      MYSQL_USER: aura_user
+      MYSQL_PASSWORD: SecureUserPass123!
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-secure-data:/var/lib/mysql
+      - ./database/init-secure.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./database/init-secure-sprint11.sql:/docker-entrypoint-initdb.d/11-sprint11.sql
+      - ./database/init-secure-sprint12.sql:/docker-entrypoint-initdb.d/12-sprint12.sql
+      - ./database/init-secure-sprint13.sql:/docker-entrypoint-initdb.d/13-sprint13.sql
+      - ./database/init-secure-sprint13-hotfix.sql:/docker-entrypoint-initdb.d/13b-sprint13-hotfix.sql
+      - ./database/init-secure-sprint14.sql:/docker-entrypoint-initdb.d/14-sprint14.sql
+      - ./database/init-secure-sprint15.sql:/docker-entrypoint-initdb.d/15-sprint15.sql
+      - ./database/init-secure-sprint17.sql:/docker-entrypoint-initdb.d/17-sprint17.sql
+      - ./database/init-secure-sprint17-currencies.sql:/docker-entrypoint-initdb.d/17c-sprint17-currencies.sql
+      - ./database/init-secure-sprint18.sql:/docker-entrypoint-initdb.d/18-sprint18.sql
+      - ./database/init-secure-sprint20.sql:/docker-entrypoint-initdb.d/20-sprint20.sql
+      - ./database/init-secure-sprint20-colors.sql:/docker-entrypoint-initdb.d/20b-sprint20-colors.sql
+      - ./database/init-secure-sprint21.sql:/docker-entrypoint-initdb.d/21-sprint21.sql
+      - ./database/init-secure-sprint23.sql:/docker-entrypoint-initdb.d/23-sprint23.sql
+      - ./database/init-secure-sprint25.sql:/docker-entrypoint-initdb.d/25-sprint25.sql
+      - ./database/init-secure-sprint26.sql:/docker-entrypoint-initdb.d/26-sprint26.sql
+      - ./database/init-secure-sprint28.sql:/docker-entrypoint-initdb.d/28-sprint28.sql
+      - ./database/init-secure-sprint30.sql:/docker-entrypoint-initdb.d/30-sprint30.sql
+      - ./database/init-secure-sprint34-admin.sql:/docker-entrypoint-initdb.d/34-sprint34-admin.sql
+      - ./database/init-secure-sprint34-widgets.sql:/docker-entrypoint-initdb.d/34b-sprint34-widgets.sql
+      - ./database/init-secure-sprint49-loan-soft-delete.sql:/docker-entrypoint-initdb.d/49-sprint49-loan-soft-delete.sql
+      - ./database/init-secure-sprint51-recurring-loan-link.sql:/docker-entrypoint-initdb.d/51-sprint51-recurring-loan-link.sql
+      - ./database/init-secure-sprint51-payment-type.sql:/docker-entrypoint-initdb.d/51b-sprint51-payment-type.sql
+      - ./database/init-secure-sprint52-password-reset.sql:/docker-entrypoint-initdb.d/52-sprint52-password-reset.sql
+      - ./database/init-secure-sprint52-2fa.sql:/docker-entrypoint-initdb.d/52b-sprint52-2fa.sql
+      - ./database/init-secure-sprint53-accounts-order.sql:/docker-entrypoint-initdb.d/53-sprint53-accounts-order.sql
+      - ./database/init-secure-sprint53-stat-card-order.sql:/docker-entrypoint-initdb.d/53b-sprint53-stat-card-order.sql
+      - ./database/init-secure-sprint57-scheduler-jobs.sql:/docker-entrypoint-initdb.d/57-sprint57-scheduler-jobs.sql
+      - ./database/init-secure-sprint57-impersonation.sql:/docker-entrypoint-initdb.d/57b-sprint57-impersonation.sql
+      - ./database/init-secure-sprint57-savings-interest.sql:/docker-entrypoint-initdb.d/57c-sprint57-savings-interest.sql
+    networks:
+      - aura-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-pSecureRootPass123!", "--silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  # MySQL Database for Vulnerable Version
+  mysql-vulnerable:
+    image: mysql:8.0
+    container_name: aura-mysql-vulnerable
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: VulnRootPass123!
+      MYSQL_DATABASE: aura_vulnerable
+      MYSQL_USER: aura_user
+      MYSQL_PASSWORD: VulnUserPass123!
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-vulnerable-data:/var/lib/mysql
+      - ./database/init-vulnerable.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./database/init-vulnerable-sprint2.sql:/docker-entrypoint-initdb.d/02-sprint2.sql
+      - ./database/init-vulnerable-sprint3.sql:/docker-entrypoint-initdb.d/03-sprint3.sql
+      - ./database/init-vulnerable-sprint4.sql:/docker-entrypoint-initdb.d/04-sprint4.sql
+      - ./database/init-vulnerable-sprint6.sql:/docker-entrypoint-initdb.d/06-sprint6.sql
+      - ./database/init-vulnerable-sprint8.sql:/docker-entrypoint-initdb.d/08-sprint8.sql
+      - ./database/init-vulnerable-sprint9b.sql:/docker-entrypoint-initdb.d/09b-sprint9b.sql
+      - ./database/init-vulnerable-sprint17.sql:/docker-entrypoint-initdb.d/17-sprint17.sql
+      - ./database/init-vulnerable-sprint17-hotfix.sql:/docker-entrypoint-initdb.d/17b-sprint17-hotfix.sql
+      - ./database/init-vulnerable-sprint18.sql:/docker-entrypoint-initdb.d/18-sprint18.sql
+      - ./database/init-vulnerable-sprint20-colors.sql:/docker-entrypoint-initdb.d/20-sprint20-colors.sql
+      - ./database/init-vulnerable-sprint21.sql:/docker-entrypoint-initdb.d/21-sprint21.sql
+      - ./database/init-vulnerable-sprint23.sql:/docker-entrypoint-initdb.d/23-sprint23.sql
+      - ./database/init-vulnerable-sprint25.sql:/docker-entrypoint-initdb.d/25-sprint25.sql
+      - ./database/init-vulnerable-sprint28.sql:/docker-entrypoint-initdb.d/28-sprint28.sql
+      - ./database/init-vulnerable-sprint42.sql:/docker-entrypoint-initdb.d/42-sprint42.sql
+      - ./database/init-vulnerable-sprint43.sql:/docker-entrypoint-initdb.d/43-sprint43.sql
+      - ./database/init-vulnerable-sprint43-notify.sql:/docker-entrypoint-initdb.d/43b-sprint43-notify.sql
+      - ./database/init-vulnerable-sprint44.sql:/docker-entrypoint-initdb.d/44-sprint44.sql
+      - ./database/init-vulnerable-sprint49-loan-soft-delete.sql:/docker-entrypoint-initdb.d/49-sprint49-loan-soft-delete.sql
+      - ./database/init-vulnerable-sprint51-recurring-loan-link.sql:/docker-entrypoint-initdb.d/51-sprint51-recurring-loan-link.sql
+      - ./database/init-vulnerable-sprint51-payment-type.sql:/docker-entrypoint-initdb.d/51b-sprint51-payment-type.sql
+      - ./database/init-vulnerable-sprint52-password-reset.sql:/docker-entrypoint-initdb.d/52-sprint52-password-reset.sql
+      - ./database/init-vulnerable-sprint52-2fa.sql:/docker-entrypoint-initdb.d/52b-sprint52-2fa.sql
+      - ./database/init-vulnerable-sprint53-accounts-order.sql:/docker-entrypoint-initdb.d/53-sprint53-accounts-order.sql
+      - ./database/init-vulnerable-sprint53-stat-card-order.sql:/docker-entrypoint-initdb.d/53b-sprint53-stat-card-order.sql
+      - ./database/init-vulnerable-sprint57-savings-interest.sql:/docker-entrypoint-initdb.d/57-sprint57-savings-interest.sql
+    networks:
+      - aura-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-pVulnRootPass123!", "--silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  # Flask App - Secure Version
+  app-secure:
+    build:
+      context: ./secure-version
+      dockerfile: Dockerfile
+    container_name: aura-app-secure
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - DATABASE_HOST=mysql-secure
+      - DATABASE_PORT=3306
+      - DATABASE_NAME=aura_secure
+      - DATABASE_USER=aura_user
+      - DATABASE_PASSWORD=SecureUserPass123!
+      - SECRET_KEY=secure-secret-key-change-in-production-xyz123
+      - GROQ_API_KEY=${GROQ_API_KEY_SECURE}
+      - GROQ_MODEL=${GROQ_MODEL:-llama-3.3-70b-versatile}
+      - MAIL_USERNAME=${MAIL_USERNAME_SECURE}
+      - MAIL_PASSWORD=${MAIL_PASSWORD_SECURE}
+      - MAIL_DEFAULT_SENDER=${MAIL_USERNAME_SECURE}
+    depends_on:
+      mysql-secure:
+        condition: service_healthy
+    volumes:
+      - ./secure-version:/app
+    networks:
+      - aura-network
+
+  # Flask App - Vulnerable Version
+  app-vulnerable:
+    build:
+      context: ./vulnerable-version
+      dockerfile: Dockerfile
+    container_name: aura-app-vulnerable
+    restart: unless-stopped
+    ports:
+      - "5001:5000"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - DATABASE_HOST=mysql-vulnerable
+      - DATABASE_PORT=3306
+      - DATABASE_NAME=aura_vulnerable
+      - DATABASE_USER=aura_user
+      - DATABASE_PASSWORD=VulnUserPass123!
+      - SECRET_KEY=weak-secret-123
+      - GROQ_API_KEY=${GROQ_API_KEY_VULNERABLE}
+      - GROQ_MODEL=${GROQ_MODEL:-llama-3.3-70b-versatile}
+      - MAIL_USERNAME=${MAIL_USERNAME_VULNERABLE}
+      - MAIL_PASSWORD=${MAIL_PASSWORD_VULNERABLE}
+      - MAIL_DEFAULT_SENDER=${MAIL_USERNAME_VULNERABLE}
+    depends_on:
+      mysql-vulnerable:
+        condition: service_healthy
+    volumes:
+      - ./vulnerable-version:/app
+    networks:
+      - aura-network
+
+volumes:
+  mysql-secure-data:
+  mysql-vulnerable-data:
+
+networks:
+  aura-network:
+    driver: bridge

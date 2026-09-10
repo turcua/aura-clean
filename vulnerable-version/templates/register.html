@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Register - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-center align-items-center" style="min-height:70vh;">
+    <div style="width:100%;max-width:480px;">
+        <div class="glass-card no-hover">
+            <div style="padding:40px;">
+                <h2 class="page-title text-center mb-4" style="font-size:1.5rem;">Create Account</h2>
+
+                <!-- VULNERABILITY: No CSRF protection -->
+                <form method="POST" action="{{ url_for('auth.register') }}">
+                    <div class="form-group-glass">
+                        <label for="username" class="form-label-glass">Username</label>
+                        <!-- VULNERABILITY: No input validation on client side -->
+                        <input type="text" class="glass-input" id="username" name="username"
+                               placeholder="Enter username">
+                    </div>
+
+                    <div class="form-group-glass">
+                        <label for="email" class="form-label-glass">Email</label>
+                        <!-- VULNERABILITY: No email validation -->
+                        <input type="text" class="glass-input" id="email" name="email"
+                               placeholder="Enter email address">
+                    </div>
+
+                    <div class="form-group-glass">
+                        <label for="password" class="form-label-glass">Password</label>
+                        <!-- VULNERABILITY: No password requirements -->
+                        <input type="password" class="glass-input" id="password" name="password"
+                               placeholder="Enter password">
+                        <div style="color:var(--th);font-size:0.78rem;margin-top:4px;">
+                            Any password accepted (even weak ones!)
+                        </div>
+                    </div>
+
+                    <!-- VULNERABILITY: No password confirmation field -->
+
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn-glass btn-glass-secondary btn-lg">Register</button>
+                    </div>
+                </form>
+
+                <div class="glass-divider my-4"></div>
+
+                <p class="text-center mb-0" style="font-size:0.875rem;">
+                    Already have an account? <a href="{{ url_for('auth.login') }}">Login here</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

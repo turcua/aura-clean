@@ -1,0 +1,9 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.monitoring.namespace }}
+  labels:
+    {{- include "aura.labels" . | nindent 4 }}
+    aura/version: monitoring
+{{- end }}

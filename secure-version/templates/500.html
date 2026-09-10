@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}500 - Internal Server Error - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-6 mx-auto text-center">
+        <div class="glass-card no-hover p-4 p-md-5">
+            <h1 class="display-1" style="color:var(--dn);">500</h1>
+            <h2 class="mb-4">Internal Server Error</h2>
+            <p class="lead mb-4" style="color:var(--ts);">
+                Something went wrong on our end. We're working to fix it.
+            </p>
+
+            <div class="alert alert-info" role="alert">
+                Please try again later or contact support if the problem persists.
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                <a href="{{ url_for('main.index') }}" class="btn-glass btn-glass-primary btn-lg">Go Home</a>
+                <a href="javascript:history.back()" class="btn-glass btn-glass-secondary btn-lg">Go Back</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

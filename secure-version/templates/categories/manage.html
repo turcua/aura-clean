@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Manage Categories - {{ app_name }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 page-header">
+    <h1 class="page-title mb-0">Categories</h1>
+    <button type="button" class="btn-glass btn-glass-secondary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+        Add Category
+    </button>
+</div>
+
+<ul class="nav nav-tabs mb-4" id="categoryTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="expense-tab" data-bs-toggle="tab"
+                data-bs-target="#expense-categories" type="button" role="tab">
+            Expense Categories
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="income-tab" data-bs-toggle="tab"
+                data-bs-target="#income-categories" type="button" role="tab">
+            Income Categories
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="categoryTabContent">
+    <div class="tab-pane fade show active" id="expense-categories" role="tabpanel">
+        <div class="glass-grid glass-grid-4" id="expenseCategoriesList">
+            <div class="empty-state">
+                <div class="glass-spinner" style="margin:0 auto 12px;"></div>
+                <p>Loading expense categories…</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="income-categories" role="tabpanel">
+        <div class="glass-grid glass-grid-4" id="incomeCategoriesList">
+            <div class="empty-state">
+                <div class="glass-spinner" style="margin:0 auto 12px;"></div>
+                <p>Loading income categories…</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ADD CATEGORY MODAL -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1" aria-labelledby="addCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addCategoryModalLabel">Add New Category</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addCategoryForm">
+                    <div class="form-group-glass">
+                        <label for="add_category_name" class="form-label-glass">Category Name</label>
+                        <input type="text" class="glass-input" id="add_category_name"
+                               name="name" maxlength="100" placeholder="e.g., Groceries, Salary" required>
+                    </div>
+                    <!-- form-group-glass--static: see Sprint 36 note on the equivalent
+                         field in transactions/list.html — a radio-button group has no
+                         single target for a floating label to move out of the way of. -->
+                    <div class="form-group-glass form-group-glass--static">
+                        <label class="form-label-glass">Type</label>
+                        <div class="type-toggle" role="radiogroup" aria-label="Category type">
+                            <input class="type-toggle-input" type="radio" name="type" id="add_type_income" value="income">
+                            <label class="type-toggle-option" for="add_type_income">Income</label>
+                            <input class="type-toggle-input" type="radio" name="type" id="add_type_expense" value="expense" checked>
+                            <label class="type-toggle-option" for="add_type_expense">Expense</label>
+                        </div>
+                    </div>
+                    <div class="form-group-glass">
+                        <label for="add_category_color" class="form-label-glass">Color</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="color" class="glass-input" style="width:60px;height:40px;padding:4px 6px;cursor:pointer;"
+                                   id="add_category_color" name="color" value="#3d7bff">
+                            <span id="add_color_preview" class="glass-badge"
+                                  style="background-color:#3d7bff;padding:6px 16px;">Preview</span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveCategoryBtn">Save Category</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT CATEGORY MODAL -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1" aria-labelledby="editCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editCategoryModalLabel">Edit Category</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editCategoryForm">
+                    <div class="form-group-glass">
+                        <label for="edit_category_name" class="form-label-glass">Category Name</label>
+                        <input type="text" class="glass-input" id="edit_category_name"
+                               name="name" maxlength="100" required>
+                    </div>
+                    <div class="form-group-glass form-group-glass--static">
+                        <label class="form-label-glass">Type</label>
+                        <div class="type-toggle" role="radiogroup" aria-label="Category type">
+                            <input class="type-toggle-input" type="radio" name="type" id="edit_type_income" value="income">
+                            <label class="type-toggle-option" for="edit_type_income">Income</label>
+                            <input class="type-toggle-input" type="radio" name="type" id="edit_type_expense" value="expense">
+                            <label class="type-toggle-option" for="edit_type_expense">Expense</label>
+                        </div>
+                    </div>
+                    <div class="form-group-glass">
+                        <label for="edit_category_color" class="form-label-glass">Color</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="color" class="glass-input" style="width:60px;height:40px;padding:4px 6px;cursor:pointer;"
+                                   id="edit_category_color" name="color">
+                            <span id="edit_color_preview" class="glass-badge" style="padding:6px 16px;">Preview</span>
+                        </div>
+                    </div>
+                    <input type="hidden" id="edit_category_id" name="category_id">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="updateCategoryBtn">Update Category</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/categories.js') }}"></script>
+{% endblock %}

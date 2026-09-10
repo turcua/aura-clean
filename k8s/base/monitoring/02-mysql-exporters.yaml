@@ -1,0 +1,134 @@
+# mysqld_exporter — one per database, each pointed at its own namespace's
+# MySQL Service over the cluster's internal DNS. Uses the root credentials
+# via DATA_SOURCE_NAME for simplicity in this lab; a real deployment would
+# create a dedicated exporter user scoped to PROCESS/REPLICATION CLIENT/
+# SELECT ON performance_schema.* instead of reusing root.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-exporter-secure-cnf
+  namespace: aura-monitoring
+type: Opaque
+stringData:
+  .my.cnf: |
+    [client]
+    user=root
+    password=SecureRootPass123!
+    host=mysql-secure.aura-secure.svc.cluster.local
+    port=3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-exporter-secure
+  namespace: aura-monitoring
+  labels:
+    app: mysql-exporter-secure
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-exporter-secure
+  template:
+    metadata:
+      labels:
+        app: mysql-exporter-secure
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9104"
+    spec:
+      containers:
+        - name: mysqld-exporter
+          image: prom/mysqld-exporter:v0.15.1
+          args:
+            - --config.my-cnf=/etc/mysql-exporter/.my.cnf
+          ports:
+            - containerPort: 9104
+          volumeMounts:
+            - name: mysql-cnf
+              mountPath: /etc/mysql-exporter
+              readOnly: true
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+      volumes:
+        - name: mysql-cnf
+          secret:
+            secretName: mysql-exporter-secure-cnf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-exporter-secure
+  namespace: aura-monitoring
+spec:
+  selector:
+    app: mysql-exporter-secure
+  ports:
+    - port: 9104
+      targetPort: 9104
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-exporter-vulnerable-cnf
+  namespace: aura-monitoring
+type: Opaque
+stringData:
+  .my.cnf: |
+    [client]
+    user=root
+    password=VulnRootPass123!
+    host=mysql-vulnerable.aura-vulnerable.svc.cluster.local
+    port=3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-exporter-vulnerable
+  namespace: aura-monitoring
+  labels:
+    app: mysql-exporter-vulnerable
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-exporter-vulnerable
+  template:
+    metadata:
+      labels:
+        app: mysql-exporter-vulnerable
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9104"
+    spec:
+      containers:
+        - name: mysqld-exporter
+          image: prom/mysqld-exporter:v0.15.1
+          args:
+            - --config.my-cnf=/etc/mysql-exporter/.my.cnf
+          ports:
+            - containerPort: 9104
+          volumeMounts:
+            - name: mysql-cnf
+              mountPath: /etc/mysql-exporter
+              readOnly: true
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+      volumes:
+        - name: mysql-cnf
+          secret:
+            secretName: mysql-exporter-vulnerable-cnf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-exporter-vulnerable
+  namespace: aura-monitoring
+spec:
+  selector:
+    app: mysql-exporter-vulnerable
+  ports:
+    - port: 9104
+      targetPort: 9104

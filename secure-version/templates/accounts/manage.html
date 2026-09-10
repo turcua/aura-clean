@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Accounts - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 page-header">
+    <h1 class="page-title mb-0">My Accounts</h1>
+    <div class="d-flex gap-2">
+        <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#transferModal">
+            Transfer
+        </button>
+        <button class="btn-glass btn-glass-secondary" data-bs-toggle="modal" data-bs-target="#addAccountModal">
+            Add Account
+        </button>
+    </div>
+</div>
+
+<div class="glass-grid glass-grid-3 mb-4" id="summaryCards">
+    <div class="stat-card text-center">
+        <div class="stat-label">Net Worth</div>
+        <div class="stat-value" id="netWorthDisplay">
+            <div class="glass-spinner mx-auto" style="margin:4px auto;"></div>
+        </div>
+    </div>
+    <div class="stat-card text-center">
+        <div class="stat-label">Budget Balance</div>
+        <div class="stat-value" id="budgetBalanceDisplay">
+            <div class="glass-spinner mx-auto" style="margin:4px auto;"></div>
+        </div>
+    </div>
+    <div class="stat-card text-center">
+        <div class="stat-label">Total Accounts</div>
+        <div class="stat-value" id="accountCountDisplay">—</div>
+    </div>
+</div>
+
+<div class="glass-grid glass-grid-3" id="accountsList">
+    <div style="grid-column:1/-1;text-align:center;padding:40px 0;">
+        <div class="glass-spinner mx-auto mb-2"></div>
+        <p style="color:var(--th);">Loading accounts...</p>
+    </div>
+</div>
+
+<!-- ADD ACCOUNT MODAL -->
+<div class="modal fade" id="addAccountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Account</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addAccountForm">
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Account Name</label>
+                        <input type="text" class="glass-input" name="name" maxlength="100" placeholder="e.g., Main Checking" required>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Account Type</label>
+                        <select class="glass-select" name="type" id="addAccountType">
+                            <option value="checking">Checking</option>
+                            <option value="savings">Savings</option>
+                            <option value="credit_card">Credit Card</option>
+                            <option value="investment">Investment</option>
+                            <option value="cash">Cash</option>
+                        </select>
+                    </div>
+                    <!-- Sprint 57 (ENH-11): shown only for type=savings, toggled in
+                         accounts.js. Hidden inputs still submit their (empty/unset)
+                         values when not savings, which the server-side scoping in
+                         routes/api/accounts.py's _parse_interest_fields() already
+                         forces to NULL for any non-savings type regardless. -->
+                    <div id="addInterestSection" style="display:none;">
+                        <div class="form-group-glass">
+                            <label class="form-label-glass">Annual Interest Rate (%)</label>
+                            <input type="number" class="glass-input" name="interest_rate_annual" step="0.001" min="0" max="100" placeholder="e.g., 4.5">
+                        </div>
+                        <div class="form-group-glass">
+                            <label class="form-label-glass">Accrual Frequency</label>
+                            <select class="glass-select" name="interest_accrual_frequency">
+                                <option value="monthly">Monthly</option>
+                                <option value="daily">Daily</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Currency</label>
+                        <select class="glass-select" name="currency" id="addAccountCurrency"></select>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Initial Balance</label>
+                        <input type="number" class="glass-input" name="initial_balance" value="0" step="0.01">
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Description</label>
+                        <input type="text" class="glass-input" name="description" maxlength="255" placeholder="Optional notes">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" name="include_in_budget" id="addIncludeBudget" checked>
+                        <label class="form-check-label" for="addIncludeBudget">Include in Budget</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="saveAccountBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT ACCOUNT MODAL -->
+<div class="modal fade" id="editAccountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Account</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editAccountForm">
+                    <input type="hidden" name="account_id" id="editAccountId">
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Account Name</label>
+                        <input type="text" class="glass-input" name="name" id="editAccountName" maxlength="100" required>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Account Type</label>
+                        <select class="glass-select" name="type" id="editAccountType">
+                            <option value="checking">Checking</option>
+                            <option value="savings">Savings</option>
+                            <option value="credit_card">Credit Card</option>
+                            <option value="investment">Investment</option>
+                            <option value="cash">Cash</option>
+                        </select>
+                    </div>
+                    <!-- Sprint 57 (ENH-11): see the identical section in the Add
+                         modal above for the display-toggle/server-scoping notes. -->
+                    <div id="editInterestSection" style="display:none;">
+                        <div class="form-group-glass">
+                            <label class="form-label-glass">Annual Interest Rate (%)</label>
+                            <input type="number" class="glass-input" name="interest_rate_annual" id="editInterestRate" step="0.001" min="0" max="100" placeholder="e.g., 4.5">
+                        </div>
+                        <div class="form-group-glass">
+                            <label class="form-label-glass">Accrual Frequency</label>
+                            <select class="glass-select" name="interest_accrual_frequency" id="editInterestFrequency">
+                                <option value="monthly">Monthly</option>
+                                <option value="daily">Daily</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Currency</label>
+                        <select class="glass-select" name="currency" id="editAccountCurrency"></select>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Description</label>
+                        <input type="text" class="glass-input" name="description" id="editAccountDesc" maxlength="255">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" name="include_in_budget" id="editIncludeBudget">
+                        <label class="form-check-label" for="editIncludeBudget">Include in Budget</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="updateAccountBtn">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TRANSFER MODAL -->
+<div class="modal fade" id="transferModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Transfer Between Accounts</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="transferForm">
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">From Account</label>
+                        <select class="glass-select" name="from_account_id" id="transferFrom"></select>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">To Account</label>
+                        <select class="glass-select" name="to_account_id" id="transferTo"></select>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Amount</label>
+                        <input type="number" class="glass-input" name="amount" step="0.01" min="0.01" required>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Description</label>
+                        <input type="text" class="glass-input" name="description" value="Transfer" maxlength="255">
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Date</label>
+                        <input type="date" class="glass-input" name="transfer_date" id="transferDate">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="executeTransferBtn">Transfer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/accounts.js') }}"></script>
+{% endblock %}

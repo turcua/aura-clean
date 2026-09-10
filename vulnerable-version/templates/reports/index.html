@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+{% block title %}Reports & Export - {{ app_name }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title mb-4">Reports & Export</h1>
+
+<!-- Filters -->
+<div class="glass-card no-hover mb-4">
+    <div class="glass-card-header">
+        <span class="glass-card-title">Filters</span>
+    </div>
+    <div style="padding:16px 20px;">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label-glass">From Date</label>
+                <input type="date" class="glass-input" id="filterFrom">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label-glass">To Date</label>
+                <input type="date" class="glass-input" id="filterTo">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label-glass">Type</label>
+                <select class="glass-select" id="filterType">
+                    <option value="">All</option>
+                    <option value="income">Income</option>
+                    <option value="expense">Expense</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button class="btn btn-secondary w-100" onclick="loadReports()">Generate</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Buttons -->
+<div class="glass-card no-hover mb-4">
+    <div class="glass-card-header">
+        <span class="glass-card-title">Export Transactions</span>
+    </div>
+    <div style="padding:16px 20px;display:flex;gap:12px;flex-wrap:wrap;">
+        <button class="btn btn-secondary" onclick="exportData('csv')">Export CSV</button>
+        <button class="btn btn-secondary" onclick="exportData('pdf')">Export PDF</button>
+        <button class="btn btn-secondary" onclick="exportData('excel')">Export Excel</button>
+    </div>
+</div>
+
+<!-- Import Section -->
+<div class="glass-card no-hover mb-4">
+    <div class="glass-card-header">
+        <span class="glass-card-title">Import Transactions</span>
+    </div>
+    <div style="padding:16px 20px;">
+        <p style="color:var(--ts);font-size:0.85rem;margin-bottom:12px;">
+            CSV must have columns: <code>Date, Type, Amount, Description, Category</code>.
+            OFX (<code>.ofx</code>/<code>.qfx</code>) and QIF (<code>.qif</code>) bank statement
+            files are also accepted.
+            <br>
+            <!-- VULNERABILITY: Info disclosure - exposes expected schema -->
+            <span style="color:var(--dn);">VULN: No file validation, CSV injection possible in descriptions, XXE via OFX import, no account ownership check</span>
+        </p>
+        <div class="d-flex gap-3 align-items-center flex-wrap">
+            <input type="file" class="glass-input" id="importFile" accept=".csv,.txt,.ofx,.qfx,.qif" style="flex:1;min-width:200px;" onchange="onImportFileChange()">
+            <select class="glass-select" id="importAccount" style="display:none;flex:0 0 220px;">
+                <option value="">Select destination account…</option>
+            </select>
+            <button class="btn btn-secondary" onclick="importFile()">Import</button>
+        </div>
+        <div id="importResult" class="mt-3"></div>
+    </div>
+</div>
+
+<!-- Report Charts -->
+<div class="row" id="reportCharts" style="display:none;">
+    <div class="col-md-6 mb-4">
+        <div class="glass-card no-hover">
+            <div class="glass-card-header">
+                <span class="glass-card-title">Spending by Category</span>
+            </div>
+            <div style="padding:16px 20px;">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="glass-card no-hover">
+            <div class="glass-card-header">
+                <span class="glass-card-title">Income vs Expenses by Month</span>
+            </div>
+            <div style="padding:16px 20px;">
+                <canvas id="monthChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 mb-4">
+        <div class="glass-card no-hover">
+            <div class="glass-card-header">
+                <span class="glass-card-title">Spending by Account</span>
+            </div>
+            <div style="padding:16px 20px;">
+                <canvas id="accountChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Table -->
+    <div class="col-12 mb-4">
+        <div class="glass-card no-hover">
+            <div class="glass-card-header">
+                <span class="glass-card-title">Category Breakdown</span>
+            </div>
+            <div style="padding:16px 20px;overflow-x:auto;">
+                <table class="glass-table" id="categoryTable">
+                    <thead><tr><th>Category</th><th>Type</th><th>Total</th><th>Count</th></tr></thead>
+                    <tbody id="categoryTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const currentUserId = {{ session.user_id }};
+let categoryChartInst = null, monthChartInst = null, accountChartInst = null;
+
+function cssVar(name) {
+    return getComputedStyle(document.getElementById('app') || document.documentElement)
+        .getPropertyValue(name).trim();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    Chart.defaults.color = cssVar('--ts');
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+    document.getElementById('filterFrom').value = firstDay;
+    document.getElementById('filterTo').value = lastDay;
+    loadReports();
+});
+
+function buildParams() {
+    const params = new URLSearchParams({user_id: currentUserId});
+    const from = document.getElementById('filterFrom').value;
+    const to = document.getElementById('filterTo').value;
+    const type = document.getElementById('filterType').value;
+    if (from) params.append('date_from', from);
+    if (to) params.append('date_to', to);
+    if (type) params.append('type', type);
+    return params.toString();
+}
+
+function exportData(format) {
+    const params = buildParams();
+    window.location.href = `/api/export/${format}?${params}`;
+}
+
+function detectImportFormat(filename) {
+    const lower = filename.toLowerCase();
+    if (lower.endsWith('.ofx') || lower.endsWith('.qfx')) return 'ofx';
+    if (lower.endsWith('.qif')) return 'qif';
+    return 'csv';
+}
+
+function onImportFileChange() {
+    const file = document.getElementById('importFile').files[0];
+    const accountSelect = document.getElementById('importAccount');
+    const format = file ? detectImportFormat(file.name) : null;
+
+    if (format === 'ofx' || format === 'qif') {
+        accountSelect.style.display = '';
+        if (!accountSelect.dataset.loaded) loadAccountsForImport();
+    } else {
+        accountSelect.style.display = 'none';
+    }
+}
+
+function loadAccountsForImport() {
+    // VULN: IDOR - relies on currentUserId from the page, but the server
+    // trusts whatever user_id is sent, not the session
+    const accountSelect = document.getElementById('importAccount');
+    fetch(`/api/accounts/list?user_id=${currentUserId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) return;
+            data.accounts.forEach(account => {
+                const option = document.createElement('option');
+                option.value = account.id;
+                option.textContent = account.name;
+                accountSelect.appendChild(option);
+            });
+            accountSelect.dataset.loaded = '1';
+        });
+}
+
+function importFile() {
+    const file = document.getElementById('importFile').files[0];
+    const resultDiv = document.getElementById('importResult');
+    if (!file) { Swal.fire({icon:'warning', title:'No file selected'}); return; }
+
+    const format = detectImportFormat(file.name);
+
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('user_id', currentUserId);
+
+    let endpoint = '/api/export/import/csv';
+    if (format === 'ofx' || format === 'qif') {
+        endpoint = `/api/export/import/${format}`;
+        const accountId = document.getElementById('importAccount').value;
+        if (!accountId) { Swal.fire({icon:'warning', title:'Select a destination account'}); return; }
+        fd.append('account_id', accountId);
+    }
+
+    Swal.fire({title:'Importing...', didOpen:()=>Swal.showLoading(), allowOutsideClick:false});
+
+    fetch(endpoint, {method:'POST', body: fd})
+        .then(r => r.json())
+        .then(data => {
+            Swal.close();
+            if (data.success) {
+                // VULN: XSS - error messages and counts injected via innerHTML with no escaping
+                const dupText = typeof data.skipped_duplicate === 'number' ? ` ${data.skipped_duplicate} duplicates skipped.` : '';
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        Imported <strong>${data.imported}</strong> transactions.${dupText}
+                        ${data.errors.length > 0 ? `<br><strong>${data.errors.length} errors:</strong><br>${data.errors.join('<br>')}` : ''}
+                    </div>`;
+            } else {
+                resultDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+            }
+        })
+        .catch(err => {
+            Swal.close();
+            resultDiv.innerHTML = `<div class="alert alert-danger">Error: ${err.message}</div>`;
+        });
+}
+
+function loadReports() {
+    Chart.defaults.color = cssVar('--ts');
+    const params = new URLSearchParams({
+        user_id: currentUserId,
+        date_from: document.getElementById('filterFrom').value,
+        date_to: document.getElementById('filterTo').value
+    });
+
+    fetch(`/api/export/reports/summary?${params.toString()}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) return;
+            const chartsEl = document.getElementById('reportCharts');
+            chartsEl.style.display = '';
+            renderCategoryChart(data.by_category);
+            renderMonthChart(data.by_month);
+            renderAccountChart(data.by_account);
+            renderCategoryTable(data.by_category);
+        });
+}
+
+function renderCategoryChart(data) {
+    const expenses = data.filter(d => d.type === 'expense');
+    const ctx = document.getElementById('categoryChart').getContext('2d');
+    if (categoryChartInst) categoryChartInst.destroy();
+    const ac = cssVar('--ac');
+    const ac2 = cssVar('--ac2');
+    const palette = [ac, ac2,
+        'rgba(255,255,255,0.45)', 'rgba(255,255,255,0.30)',
+        'rgba(255,255,255,0.20)', 'rgba(255,255,255,0.15)',
+        'rgba(255,255,255,0.10)', 'rgba(255,255,255,0.08)'];
+    categoryChartInst = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: expenses.map(d => d.category),
+            datasets: [{
+                data: expenses.map(d => d.total),
+                backgroundColor: palette,
+                borderColor: cssVar('--rim'),
+                borderWidth: 1
+            }]
+        },
+        options: {plugins: {legend: {labels: {color: cssVar('--ts')}}}}
+    });
+}
+
+function renderMonthChart(data) {
+    const ctx = document.getElementById('monthChart').getContext('2d');
+    if (monthChartInst) monthChartInst.destroy();
+    const upColor = cssVar('--up');
+    const dnColor = cssVar('--dn');
+    monthChartInst = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.map(d => d.month),
+            datasets: [
+                {label:'Income', data: data.map(d => d.income), backgroundColor: upColor + '55', borderColor: upColor, borderWidth: 1},
+                {label:'Expenses', data: data.map(d => d.expenses), backgroundColor: dnColor + '55', borderColor: dnColor, borderWidth: 1}
+            ]
+        },
+        options: {
+            plugins: {legend: {labels: {color: cssVar('--ts')}}},
+            scales: {x: {ticks:{color: cssVar('--ts')}, grid:{color: cssVar('--th')}},
+                     y: {ticks:{color: cssVar('--ts')}, grid:{color: cssVar('--th')}}}
+        }
+    });
+}
+
+function renderAccountChart(data) {
+    const ctx = document.getElementById('accountChart').getContext('2d');
+    if (accountChartInst) accountChartInst.destroy();
+    const upColor = cssVar('--up');
+    const dnColor = cssVar('--dn');
+    accountChartInst = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.map(d => d.account),
+            datasets: [
+                {label:'Income', data: data.map(d => d.income), backgroundColor: upColor + '55', borderColor: upColor, borderWidth: 1},
+                {label:'Expenses', data: data.map(d => d.expenses), backgroundColor: dnColor + '55', borderColor: dnColor, borderWidth: 1}
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            plugins: {legend: {labels: {color: cssVar('--ts')}}},
+            scales: {x: {ticks:{color: cssVar('--ts')}, grid:{color: cssVar('--th')}},
+                     y: {ticks:{color: cssVar('--ts')}, grid:{color: cssVar('--th')}}}
+        }
+    });
+}
+
+function renderCategoryTable(data) {
+    const tbody = document.getElementById('categoryTableBody');
+    tbody.innerHTML = data.map(d => `
+        <tr>
+            <td>${d.category}</td>
+            <td><span class="glass-badge ${d.type==='income'?'badge-income':'badge-expense'}">${d.type}</span></td>
+            <td>RON ${d.total.toFixed(2)}</td>
+            <td>${d.count}</td>
+        </tr>`).join('');
+}
+</script>
+{% endblock %}

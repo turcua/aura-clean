@@ -1,0 +1,111 @@
+{{- if .Values.vulnerable.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-vulnerable-config
+  namespace: {{ .Values.vulnerable.namespace }}
+data:
+  FLASK_APP: app.py
+  FLASK_ENV: development
+  # prometheus_flask_exporter refuses to register /metrics at all when the
+  # Werkzeug reloader is active — unconditionally true here since app.py
+  # hardcodes debug=True (intentional vulnerability, left as-is).
+  DEBUG_METRICS: "1"
+  DATABASE_HOST: mysql-vulnerable
+  DATABASE_PORT: "3306"
+  DATABASE_NAME: {{ .Values.vulnerable.mysql.database | quote }}
+  DATABASE_USER: {{ .Values.vulnerable.mysql.user | quote }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-vulnerable-secrets
+  namespace: {{ .Values.vulnerable.namespace }}
+type: Opaque
+stringData:
+  DATABASE_PASSWORD: {{ .Values.vulnerable.mysql.password | quote }}
+  SECRET_KEY: {{ .Values.vulnerable.secretKey | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-vulnerable
+  namespace: {{ .Values.vulnerable.namespace }}
+  labels: { app: app-vulnerable }
+spec:
+  replicas: {{ .Values.vulnerable.replicaCount }}
+  selector:
+    matchLabels: { app: app-vulnerable }
+  template:
+    metadata:
+      labels: { app: app-vulnerable }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "5000"
+    spec:
+      initContainers:
+        - name: wait-for-mysql
+          image: mysql:8.0
+          command:
+            - sh
+            - -c
+            - >
+              until mysqladmin ping -h mysql-vulnerable -u root -p"$MYSQL_ROOT_PASSWORD" --silent;
+              do echo waiting for mysql-vulnerable; sleep 2; done
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: mysql-vulnerable-credentials, key: MYSQL_ROOT_PASSWORD }
+      containers:
+        - name: app-vulnerable
+          image: "{{ .Values.vulnerable.image.repository }}:{{ .Values.vulnerable.image.tag }}"
+          imagePullPolicy: {{ .Values.vulnerable.image.pullPolicy }}
+          ports: [{ containerPort: 5000 }]
+          envFrom:
+            - configMapRef: { name: app-vulnerable-config }
+            - secretRef: { name: app-vulnerable-secrets }
+          resources:
+            {{- toYaml .Values.vulnerable.resources | nindent 12 }}
+          livenessProbe:
+            httpGet: { path: /health, port: 5000 }
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /health, port: 5000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-vulnerable
+  namespace: {{ .Values.vulnerable.namespace }}
+spec:
+  selector: { app: app-vulnerable }
+  ports: [{ port: 80, targetPort: 5000, name: http }]
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: app-vulnerable
+  namespace: {{ .Values.vulnerable.namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: app-vulnerable
+  minReplicas: {{ .Values.vulnerable.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.vulnerable.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: {{ .Values.vulnerable.autoscaling.targetCPUUtilizationPercentage }} }
+    - type: Resource
+      resource:
+        name: memory
+        target: { type: Utilization, averageUtilization: {{ .Values.vulnerable.autoscaling.targetMemoryUtilizationPercentage }} }
+{{- end }}

@@ -1,0 +1,142 @@
+# app-secure — ConfigMap, Secret, Deployment, Service, HorizontalPodAutoscaler
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-secure-config
+  namespace: aura-secure
+data:
+  FLASK_APP: app.py
+  FLASK_ENV: production
+  DATABASE_HOST: mysql-secure
+  DATABASE_PORT: "3306"
+  DATABASE_NAME: aura_secure
+  DATABASE_USER: aura_user
+  # Sprint 23: not a secret, safe to commit — GROQ_API_KEY (the actual
+  # credential) is deliberately NOT here; see k8s/UPGRADE.md's Sprint 23-26
+  # catch-up section for how it's applied out-of-band instead.
+  GROQ_MODEL: llama-3.3-70b-versatile
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secure-secrets
+  namespace: aura-secure
+type: Opaque
+stringData:
+  DATABASE_PASSWORD: SecureUserPass123!
+  SECRET_KEY: secure-secret-key-change-in-production-xyz123
+  # GROQ_API_KEY intentionally not committed here — applied out-of-band,
+  # see k8s/UPGRADE.md's Sprint 23-26 catch-up section.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-secure
+  namespace: aura-secure
+  labels:
+    app: app-secure
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: app-secure
+  template:
+    metadata:
+      labels:
+        app: app-secure
+      annotations:
+        # Sprint 16 (K8S-003): Prometheus auto-discovers pods with these
+        # annotations rather than needing every app hardcoded into its
+        # scrape config — see k8s/base/monitoring/03-prometheus.yaml
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "5000"
+    spec:
+      initContainers:
+        - name: wait-for-mysql
+          image: mysql:8.0
+          command:
+            - sh
+            - -c
+            - >
+              until mysqladmin ping -h mysql-secure -u root -p"$MYSQL_ROOT_PASSWORD" --silent;
+              do echo waiting for mysql-secure; sleep 2; done
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secure-credentials
+                  key: MYSQL_ROOT_PASSWORD
+      containers:
+        - name: app-secure
+          image: aura-app-secure:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          envFrom:
+            - configMapRef:
+                name: app-secure-config
+            - secretRef:
+                name: app-secure-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-secure
+  namespace: aura-secure
+spec:
+  selector:
+    app: app-secure
+  ports:
+    - port: 80
+      targetPort: 5000
+      name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: app-secure
+  namespace: aura-secure
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: app-secure
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}Savings Goals - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 page-header">
+    <h1 class="page-title mb-0">Savings Goals</h1>
+    <button class="btn-glass btn-glass-secondary" data-bs-toggle="modal" data-bs-target="#addGoalModal">
+        New Goal
+    </button>
+</div>
+
+<div class="glass-grid glass-grid-3" id="goalsList">
+    <div style="grid-column:1/-1;text-align:center;padding:40px 0;">
+        <div class="glass-spinner mx-auto mb-2"></div>
+        <p style="color:var(--th);">Loading goals...</p>
+    </div>
+</div>
+
+<!-- ADD GOAL MODAL -->
+<div class="modal fade" id="addGoalModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">New Savings Goal</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addGoalForm">
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Goal Name</label>
+                        <input type="text" class="glass-input" name="name" maxlength="100" placeholder="e.g., Emergency Fund" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Target Amount (RON)</label>
+                                <input type="number" class="glass-input" name="target_amount" id="addTargetAmount"
+                                       step="0.01" min="0.01" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Current Saved (RON)</label>
+                                <input type="number" class="glass-input" name="current_amount"
+                                       step="0.01" min="0" value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dual-Mode Timeline Calculator -->
+                    <div class="glass-card no-hover mb-3">
+                        <div class="glass-card-header">
+                            <span class="glass-card-title">Timeline Calculator — pick one mode:</span>
+                        </div>
+                        <div style="padding:16px 20px;">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group-glass">
+                                        <label class="form-label-glass fw-bold">Mode A: Set Deadline</label>
+                                        <input type="date" class="glass-input" name="target_date" id="addTargetDate">
+                                        <div id="addModeAResult" style="color:var(--ac);font-size:0.82rem;margin-top:4px;"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group-glass">
+                                        <label class="form-label-glass fw-bold">Mode B: Set Monthly Amount</label>
+                                        <input type="number" class="glass-input" name="monthly_target" id="addMonthlyTarget"
+                                               step="0.01" min="0" placeholder="$0.00">
+                                        <div id="addModeBResult" style="color:var(--ac);font-size:0.82rem;margin-top:4px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Linked Account (optional)</label>
+                        <select class="glass-select" name="account_id" id="addGoalAccount">
+                            <option value="">-- No linked account --</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="saveGoalBtn">Save Goal</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT GOAL MODAL -->
+<div class="modal fade" id="editGoalModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Goal</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editGoalForm">
+                    <input type="hidden" name="goal_id" id="editGoalId">
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Goal Name</label>
+                        <input type="text" class="glass-input" name="name" id="editGoalName" maxlength="100" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Target Amount</label>
+                                <input type="number" class="glass-input" name="target_amount" id="editTargetAmount" step="0.01">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Current Amount</label>
+                                <input type="number" class="glass-input" name="current_amount" id="editCurrentAmount" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Target Date</label>
+                                <input type="date" class="glass-input" name="target_date" id="editTargetDate">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Monthly Target</label>
+                                <input type="number" class="glass-input" name="monthly_target" id="editMonthlyTarget" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Linked Account</label>
+                                <select class="glass-select" name="account_id" id="editGoalAccount">
+                                    <option value="">-- None --</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Status</label>
+                                <select class="glass-select" name="status" id="editGoalStatus">
+                                    <option value="active">Active</option>
+                                    <option value="achieved">Achieved</option>
+                                    <option value="paused">Paused</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="updateGoalBtn">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ADD PROGRESS MODAL -->
+<div class="modal fade" id="progressModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Progress</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="progressGoalId">
+                <div class="form-group-glass">
+                    <label class="form-label-glass">Amount to Add (RON)</label>
+                    <input type="number" class="glass-input" id="progressAmount" step="0.01" min="0.01">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="saveProgressBtn">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/goals.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,2920 @@
+/*
+ * Aura — Glass Design System
+ * Phase 2: 6-layer Liquid Glass architecture.
+ * Layout, components, animations. Zero hardcoded colours — tokens only.
+ */
+
+/* ─────────────────────────────────────────────────────────────
+   GLOBAL RESET & BASE
+   ───────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, #app {
+  height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  font-family: var(--fb);
+  color: var(--tp);
+  background: var(--bg);
+  background-attachment: fixed;
+  display: flex;
+  overflow: hidden;
+}
+
+body, body * {
+  color: var(--tp);
+}
+
+a { color: var(--ac) !important; text-decoration: none; }
+a:hover { color: var(--ac2) !important; }
+.amount-positive, .text-success { color: var(--up) !important; }
+.amount-negative, .text-danger  { color: var(--dn) !important; }
+.text-muted  { color: var(--th) !important; }
+.text-warning { color: var(--ac2) !important; }
+
+/* ─────────────────────────────────────────────────────────────
+   BLOB LAYER — Z0 (the scene, never glass itself)
+   4 blobs: Indigo (dominant), Teal, Violet, Rose
+   GPU-composited via translateZ(0) + will-change
+   ───────────────────────────────────────────────────────────── */
+.blob-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Blob 1 — Indigo, wide sweeping arm, slow drift (16s) */
+.blob-1 {
+  width: 900px;
+  height: 260px;
+  background: var(--b1);
+  top: -60px;
+  left: -180px;
+  animation: blob-float-1 16s ease-in-out infinite;
+}
+
+/* Blob 2 — Teal, elongated arm, counter-drift (20s) */
+.blob-2 {
+  width: 750px;
+  height: 220px;
+  background: var(--b2);
+  bottom: -80px;
+  right: -140px;
+  animation: blob-float-2 20s ease-in-out infinite;
+}
+
+/* Blob 3 — Violet, steep diagonal slash through center (14s) */
+.blob-3 {
+  width: 660px;
+  height: 200px;
+  background: var(--b3);
+  top: 32%;
+  left: 28%;
+  animation: blob-float-3 14s ease-in-out infinite;
+}
+
+/* Blob 4 — Rose, smaller accent arm, fast (11s) */
+.blob-4 {
+  width: 480px;
+  height: 160px;
+  background: var(--b4);
+  bottom: 18%;
+  left: 4%;
+  animation: blob-float-4 11s ease-in-out infinite;
+}
+
+@keyframes blob-float-1 {
+  0%, 100% { transform: rotate(-35deg) translateZ(0) translate(0,    0)    scale(1.00); }
+  33%       { transform: rotate(-32deg) translateZ(0) translate(45px, 35px) scale(1.04); }
+  66%       { transform: rotate(-38deg) translateZ(0) translate(-25px,55px) scale(0.96); }
+}
+
+@keyframes blob-float-2 {
+  0%, 100% { transform: rotate(20deg)  translateZ(0) translate(0,     0)    scale(1.00); }
+  40%       { transform: rotate(23deg)  translateZ(0) translate(-55px,-35px) scale(1.05); }
+  70%       { transform: rotate(18deg)  translateZ(0) translate(35px, -55px) scale(0.95); }
+}
+
+@keyframes blob-float-3 {
+  0%, 100% { transform: rotate(-55deg) translateZ(0) translate(0,    0)    scale(1.00); }
+  50%       { transform: rotate(-52deg) translateZ(0) translate(65px,-45px) scale(1.06); }
+}
+
+@keyframes blob-float-4 {
+  0%, 100% { transform: rotate(40deg)  translateZ(0) translate(0,    0)    scale(1.00); }
+  30%       { transform: rotate(43deg)  translateZ(0) translate(30px,-25px) scale(1.08); }
+  70%       { transform: rotate(38deg)  translateZ(0) translate(-20px,30px) scale(0.94); }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SIDEBAR — Z+3 glass panel
+   Direct backdrop-filter (no lensing — Apple rule for large surfaces).
+   Width transitions via .sidebar-collapsed on <body>.
+   ───────────────────────────────────────────────────────────── */
+.glass-sidebar {
+  position: fixed;
+  left: 0; top: 0; bottom: 0;
+  width: var(--sidebar-w);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: var(--blur-sidebar);
+  -webkit-backdrop-filter: var(--blur-sidebar);
+  border-right: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 4px 0 28px rgba(0, 0, 0, 0.30), inset -1px 0 0 rgba(255, 255, 255, 0.06);
+  transition: width 0.32s cubic-bezier(0.34, 1.50, 0.64, 1);
+  overflow: hidden;
+}
+
+/* ── Sidebar header (brand + collapse button) */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 16px 18px;
+  border-bottom: 1px solid var(--gb);
+  flex-shrink: 0;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none !important;
+  color: inherit !important;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sidebar-brand-text {
+  font-family: var(--fh);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--tp);
+  transition: opacity 0.2s ease, width 0.32s ease;
+}
+
+/* Sprint 53 (UI-04, final) — "Interlocking Rings" is a fixed indigo
+   gradient (not currentColor — explicit user decision, see
+   docs/sprints/sprint-53-plan.md), so no color token here. Stays visible
+   when the sidebar is collapsed, unlike .sidebar-brand-text/.brand-badge
+   below. */
+.sidebar-brand-icon {
+  flex-shrink: 0;
+}
+
+/* Sprint 53 (UI-04, final) — .home-hero-icon marks the same mark, larger,
+   on the home/landing page hero (replaces the money-bag emoji previously
+   there). No rules needed here — colors are fixed on the SVG itself. */
+
+/* Home hero image (2026-09-02) — user-designed raster logo, replacing
+   .home-hero-icon on index.html only (see that template's comment).
+   max-width/height:auto so the fixed 300px width attribute (used to avoid
+   the browser rendering at the source's full 6250px until CSS loads)
+   still shrinks gracefully on narrow viewports instead of overflowing. */
+.home-hero-logo {
+  max-width: 100%;
+  height: auto;
+  /* mix-blend-mode: screen removed (2026-09-02) — that was a workaround
+     for an earlier opaque-black-background export of this same image.
+     The current source (aura-hero-logo.png) has real alpha transparency,
+     so no blend-mode trick is needed; screen mode was left in briefly and
+     interacted oddly with the image's semi-transparent edge pixels,
+     producing a faint box/halo artifact. */
+}
+
+.brand-badge {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ac);
+  background: var(--as);
+  border: 1px solid var(--ag);
+  border-radius: 999px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  transition: opacity 0.2s ease;
+}
+
+/* ── Sidebar collapse toggle */
+.sidebar-collapse-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--th);
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+
+.sidebar-collapse-btn:hover {
+  color: var(--tp);
+  background: var(--as);
+}
+
+.sidebar-collapse-btn .collapse-icon {
+  transition: transform 0.32s cubic-bezier(0.34, 1.50, 0.64, 1);
+  flex-shrink: 0;
+}
+
+/* Nav container */
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 0;
+  scrollbar-width: none;
+}
+.sidebar-nav::-webkit-scrollbar { display: none; }
+
+/* Nav group */
+.nav-group { padding: 10px 0 2px; }
+
+.nav-group-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--th);
+  padding: 0 20px 5px;
+  white-space: nowrap;
+  transition: opacity 0.2s ease;
+}
+
+/* Nav item — icon + label */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ts);
+  border-radius: calc(var(--rad) - 8px);
+  margin: 1px 8px;
+  cursor: pointer;
+  text-decoration: none !important;
+  border: none;
+  background: transparent;
+  width: calc(100% - 16px);
+  text-align: left;
+  white-space: nowrap;
+  transition: transform 0.22s cubic-bezier(0.34, 1.50, 0.64, 1),
+              background 0.22s ease,
+              color 0.22s ease,
+              padding 0.32s cubic-bezier(0.34, 1.50, 0.64, 1),
+              justify-content 0.32s ease;
+}
+
+.nav-item:hover {
+  transform: translateX(3px);
+  background: var(--as);
+  color: var(--tp);
+}
+
+.nav-item.active {
+  background: var(--as);
+  color: var(--ac);
+  font-weight: 600;
+  border-left: 2px solid var(--ac);
+  padding-left: 18px;
+}
+
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.70;
+  transition: opacity 0.2s ease;
+}
+
+.nav-item:hover .nav-icon,
+.nav-item.active .nav-icon {
+  opacity: 1;
+}
+
+.nav-label {
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+/* Sidebar footer */
+.sidebar-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--gb);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar-username {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ts);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-logout {
+  font-size: 0.78rem;
+  color: var(--th);
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+.sidebar-logout:hover { color: var(--dn); }
+
+/* Theme switcher (Sprint 34) */
+.sidebar-theme {
+  padding: 10px 20px;
+  border-top: 1px solid var(--gb);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar-theme-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--th);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+select.sidebar-theme-select {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+/* ── COLLAPSED STATE — triggered by body.sidebar-collapsed */
+body.sidebar-collapsed .glass-sidebar {
+  width: var(--sidebar-wc);
+}
+
+body.sidebar-collapsed .sidebar-brand-text,
+body.sidebar-collapsed .brand-badge {
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  overflow: hidden;
+}
+
+/* Sprint 53 (UI-04) — see secure-version/static/css/glass.css's matching
+   comment: the collapsed rail was only ever sized for the collapse button;
+   shrink the icon + tighten header padding to fit both without widening
+   --sidebar-wc (which also drives .main-content's margin-left everywhere). */
+body.sidebar-collapsed .sidebar-header {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+body.sidebar-collapsed .sidebar-brand {
+  gap: 0;
+}
+body.sidebar-collapsed .sidebar-brand-icon {
+  /* Sprint 53, user feedback: 18px (matching .nav-icon exactly) still read
+     too small in a live devtools comparison; 20px tested better while
+     staying deliberately smaller than the expanded mark's 26px (full
+     parity would need a wider rail or a restructured header — declined).
+     Rail budget: 60px - 8px padding = 52px available, 20px icon + 28px
+     collapse button = 48px needed, 4px to spare.
+
+     Bumped to 26px (2026-09-02, explicit user request, alongside the
+     expanded mark going 26px -> 32px for the new raster logo) — this
+     exceeds the budget above: 26px icon + 28px collapse button = 54px
+     needed vs. 52px available, 2px over. Left as requested; if it visibly
+     crowds/overlaps the collapse button, the fix is either a smaller
+     value here or widening the rail (60px) itself. */
+  width: 26px;
+  height: 26px;
+}
+
+body.sidebar-collapsed .sidebar-collapse-btn .collapse-icon {
+  transform: rotate(180deg);
+}
+
+body.sidebar-collapsed .nav-group-label,
+body.sidebar-collapsed .nav-label {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+body.sidebar-collapsed .nav-item {
+  justify-content: center;
+  padding: 10px 0;
+  gap: 0;
+  margin: 1px 4px;
+  width: calc(100% - 8px);
+  border-left: none !important;
+  padding-left: 0 !important;
+}
+
+body.sidebar-collapsed .nav-item:hover {
+  transform: none;
+}
+
+body.sidebar-collapsed .nav-icon {
+  opacity: 0.80;
+}
+
+body.sidebar-collapsed .sidebar-footer,
+body.sidebar-collapsed .sidebar-theme {
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.sidebar-collapsed .main-content {
+  margin-left: var(--sidebar-wc);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MAIN CONTENT AREA — Z+1
+   Scroll edge: mask-image fades content at top as it scrolls
+   under the glass sidebar/background layer.
+   ───────────────────────────────────────────────────────────── */
+.main-content {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  padding: 32px 32px 48px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gb) transparent;
+  transition: margin-left 0.32s cubic-bezier(0.34, 1.50, 0.64, 1);
+}
+
+/* DISABLED (Release 7 paused) — Abyss-only per user decision. Scroll-edge
+   dissolve (Sprint 36/37, Wisteria+Tempest) preserved for reference /
+   future revival: docs/releases/release-07-plan.md
+[data-theme="wisteria"] .main-content,
+[data-theme="tempest"] .main-content {
+  mask-image: linear-gradient(to bottom,
+    transparent 0, black 32px, black calc(100% - 24px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom,
+    transparent 0, black 32px, black calc(100% - 24px), transparent 100%);
+}
+*/
+
+.main-content::-webkit-scrollbar { width: 4px; }
+.main-content::-webkit-scrollbar-track { background: transparent; }
+.main-content::-webkit-scrollbar-thumb {
+  background: var(--gb);
+  border-radius: 999px;
+}
+
+.page-title {
+  font-family: var(--fh);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--tp);
+  letter-spacing: -0.5px;
+  margin-bottom: 24px;
+}
+
+/* Clears the fixed notification bell (top:20px, right:28px, 40px wide —
+   Sprint 21), which otherwise sits directly over the "Add X" button these
+   page headers all right-align via justify-content:space-between */
+.page-header {
+  padding-right: 56px;
+  flex-wrap: wrap;
+  row-gap: 10px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   GLASS CARD — Z+2
+   Transparent pane floating above the blob scene.
+   Depth via shadow (--sh / --shh), NOT specular rims.
+   Uniform 1px border on all sides — clean glass edge.
+   ───────────────────────────────────────────────────────────── */
+.glass-card {
+  background: var(--gl);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--gb);
+  border-radius: var(--rad);
+  box-shadow: var(--sh);
+  padding: 22px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.32s cubic-bezier(0.34, 1.50, 0.64, 1),
+              box-shadow 0.32s cubic-bezier(0.34, 1.50, 0.64, 1);
+}
+
+/* Hover — spring elevation (depth via shadow, not specular) */
+.glass-card:hover {
+  transform: translateY(-4px) scale(1.010);
+  box-shadow: var(--shh);
+}
+
+.glass-card.no-hover:hover {
+  transform: none;
+  box-shadow: var(--sh);
+}
+
+/* DISABLED (Release 7 paused) — Abyss-only per user decision. Wisteria +
+   Tempest material upgrade (asymmetric-rim border override, caustic
+   light-catch line + keyframes, interaction glow + keyframe; Sprint 36/37)
+   preserved below for reference / future revival:
+   docs/releases/release-07-plan.md
+[data-theme="wisteria"] .glass-card,
+[data-theme="tempest"] .glass-card {
+  border: none;
+  border-top:    1.5px solid var(--rim);
+  border-left:   1px solid var(--rim-l);
+  border-right:  1px solid var(--rim-r);
+  border-bottom: 1px solid var(--rim-b);
+}
+
+[data-theme="wisteria"] .glass-card::before,
+[data-theme="tempest"] .glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 15%;
+  width: 70%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+  pointer-events: none;
+}
+
+[data-theme="wisteria"] .glass-card::before {
+  animation: wisteria-caustic-pulse 3.5s ease-in-out infinite;
+}
+
+[data-theme="tempest"] .glass-card::before {
+  animation: tempest-lightning-flash 5s ease-in-out infinite;
+}
+
+@keyframes wisteria-caustic-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
+
+@keyframes tempest-lightning-flash {
+  0%, 88%, 100% { opacity: 0; }
+  89%  { opacity: 1; }
+  90%  { opacity: 0.25; }
+  91%  { opacity: 1; }
+  93%  { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="wisteria"] .glass-card::before,
+  [data-theme="tempest"] .glass-card::before {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
+[data-theme="wisteria"] .btn-glass,
+[data-theme="tempest"] .btn-glass {
+  position: relative;
+  overflow: hidden;
+}
+
+[data-theme="wisteria"] .glass-card.glow-active::after,
+[data-theme="wisteria"] .btn-glass.glow-active::after,
+[data-theme="tempest"] .glass-card.glow-active::after,
+[data-theme="tempest"] .btn-glass.glow-active::after {
+  content: '';
+  position: absolute;
+  left: var(--glow-x, 50%);
+  top: var(--glow-y, 50%);
+  width: 200px;
+  height: 200px;
+  margin-left: -100px;
+  margin-top: -100px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--ag) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 5;
+  animation: wisteria-glow-fade 0.6s ease-out forwards;
+}
+
+@keyframes wisteria-glow-fade {
+  0%   { opacity: 0.8; transform: scale(0.3); }
+  100% { opacity: 0;   transform: scale(1.4); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="wisteria"] .glass-card.glow-active::after,
+  [data-theme="wisteria"] .btn-glass.glow-active::after,
+  [data-theme="tempest"] .glass-card.glow-active::after,
+  [data-theme="tempest"] .btn-glass.glow-active::after {
+    display: none;
+  }
+}
+*/
+
+.glass-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gb);
+}
+
+.glass-card-title {
+  font-family: var(--fh);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ts);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   STAT CARD
+   ───────────────────────────────────────────────────────────── */
+.stat-card {
+  background: var(--gl);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--gb);
+  border-radius: calc(var(--rad) - 4px);
+  box-shadow: var(--sh);
+  padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.32s cubic-bezier(0.34, 1.50, 0.64, 1),
+              box-shadow 0.32s cubic-bezier(0.34, 1.50, 0.64, 1);
+}
+
+.stat-card:hover {
+  transform: translateY(-4px) scale(1.012);
+  box-shadow: var(--shh);
+}
+
+.stat-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--th);
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-family: var(--fh);
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+  color: var(--tp);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-sub {
+  font-size: 0.75rem;
+  color: var(--ts);
+  margin-top: 4px;
+}
+
+.stat-value.income  { color: var(--up); }
+.stat-value.expense { color: var(--dn); }
+
+/* DISABLED (Release 7 paused) — Abyss-only per user decision. Wisteria +
+   Tempest hero card (Sprint 36/37) preserved below for reference / future
+   revival: docs/releases/release-07-plan.md
+.hero-card { display: none; }
+
+[data-theme="wisteria"] #statCards,
+[data-theme="tempest"] #statCards {
+  display: none;
+}
+[data-theme="wisteria"] .hero-card,
+[data-theme="tempest"] .hero-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  flex-wrap: wrap;
+  padding: 26px 28px;
+}
+
+.hero-main { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
+
+.hero-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--th);
+}
+
+.hero-balance {
+  font-family: var(--fh);
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  line-height: 1.1;
+}
+
+.hero-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.hero-ring-wrap { position: relative; width: 76px; height: 76px; flex-shrink: 0; }
+
+.hero-ring { transform: rotate(-90deg); }
+.hero-ring-bg   { stroke: var(--gb); }
+.hero-ring-fill {
+  stroke: var(--ac);
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.34, 1.50, 0.64, 1);
+}
+
+.hero-ring-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-ring-val { font-family: var(--fh); font-size: 1rem; font-weight: 700; color: var(--tp); }
+.hero-ring-lbl { font-size: 8px; color: var(--th); text-transform: uppercase; letter-spacing: 0.1em; }
+
+.hero-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.hero-stat-pill {
+  background: var(--as);
+  border: 1px solid var(--gb);
+  border-radius: 999px;
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hero-stat-label {
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--th);
+}
+
+.hero-stat-val { font-family: var(--fh); font-size: 0.95rem; font-weight: 700; }
+.hero-stat-val.income  { color: var(--up); }
+.hero-stat-val.expense { color: var(--dn); }
+*/
+
+/* ─────────────────────────────────────────────────────────────
+   FLASH MESSAGES
+   ───────────────────────────────────────────────────────────── */
+.flash-container { margin-bottom: 20px; }
+
+.flash-msg {
+  background: var(--gl);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--gb);
+  border-radius: var(--rad);
+  box-shadow: var(--sh);
+  padding: 12px 18px;
+  color: var(--tp);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.flash-close {
+  background: none;
+  border: none;
+  color: var(--th);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 4px;
+  transition: color 0.2s;
+}
+.flash-close:hover { color: var(--tp); }
+
+/* ─────────────────────────────────────────────────────────────
+   GLASS BUTTONS
+   ───────────────────────────────────────────────────────────── */
+.btn-glass {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  font-family: var(--fb);
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: calc(var(--rad) - 4px);
+  cursor: pointer;
+  border: none;
+  transition: transform 0.28s cubic-bezier(0.34, 1.50, 0.64, 1),
+              box-shadow 0.28s cubic-bezier(0.34, 1.50, 0.64, 1),
+              background 0.22s ease;
+}
+
+.btn-glass:hover { transform: translateY(-2px) scale(1.02); }
+
+.btn-glass-primary {
+  background: var(--ac);
+  color: #fff;
+  box-shadow: 0 4px 16px var(--ag);
+}
+.btn-glass-primary:hover {
+  background: var(--ac2);
+  box-shadow: 0 8px 28px var(--ag);
+  color: #fff;
+}
+
+.btn-glass-secondary {
+  background: var(--gl);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--gb);
+  color: var(--tp);
+  box-shadow: var(--sh);
+}
+.btn-glass-secondary:hover {
+  background: var(--as);
+  color: var(--tp);
+  box-shadow: var(--shh);
+}
+
+.btn-glass-danger {
+  background: rgba(251, 113, 133, 0.15);
+  color: var(--tp);
+  box-shadow: 0 4px 16px rgba(251, 113, 133, 0.20);
+}
+.btn-glass-danger:hover {
+  background: rgba(251, 113, 133, 0.25);
+  box-shadow: 0 8px 28px rgba(251, 113, 133, 0.32);
+  color: var(--tp);
+}
+
+.btn-glass-success {
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--tp);
+  box-shadow: 0 4px 16px rgba(52, 211, 153, 0.20);
+}
+.btn-glass-success:hover {
+  background: rgba(52, 211, 153, 0.25);
+  box-shadow: 0 8px 28px rgba(52, 211, 153, 0.32);
+  color: var(--tp);
+}
+
+.btn-glass-sm {
+  padding: 6px 14px;
+  font-size: 0.8rem;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   GLASS FORM INPUTS
+   ───────────────────────────────────────────────────────────── */
+.glass-input,
+.glass-select,
+.glass-textarea {
+  width: 100%;
+  background: var(--gl);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-top:    1px solid var(--rim);
+  border-left:   1px solid var(--rim-l);
+  border-right:  1px solid var(--rim-r);
+  border-bottom: 1px solid var(--rim-b);
+  border-radius: calc(var(--rad) - 4px);
+  padding: 10px 14px;
+  font-family: var(--fb);
+  font-size: 0.875rem;
+  color: var(--tp);
+  outline: none;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.glass-input::placeholder,
+.glass-textarea::placeholder { color: var(--th); }
+
+.glass-input:focus,
+.glass-select:focus,
+.glass-textarea:focus {
+  border-top-color: var(--ac);
+  box-shadow: 0 0 0 2px var(--as);
+}
+
+.glass-select option { background: var(--surface); color: var(--tp); }
+
+/* Searchable combobox dropdown (Sprint 52, ENH-10) — sits inside a
+   position:relative form-group-glass wrapper, opaque background (not the
+   translucent glass tokens used elsewhere) since it overlays sibling form
+   fields and needs to stay legible against them. */
+.searchable-select-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin-top: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--surface);
+  border-top:    1px solid var(--rim);
+  border-left:   1px solid var(--rim-l);
+  border-right:  1px solid var(--rim-r);
+  border-bottom: 1px solid var(--rim-b);
+  border-radius: calc(var(--rad) - 4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.searchable-select-option {
+  padding: 8px 14px;
+  font-size: 0.875rem;
+  color: var(--tp);
+  cursor: pointer;
+}
+
+.searchable-select-option:hover,
+.searchable-select-option.is-active {
+  background: var(--as);
+}
+
+.searchable-select-empty {
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  color: var(--th);
+}
+
+/* Native color-picker swatch (Sprint 34) — only the closed swatch button is
+   stylable at all; the OS color-selection dialog itself is native browser
+   chrome, unreachable by CSS in every browser. This just makes the closed
+   button's border/radius match the glass aesthetic instead of the browser
+   default. */
+input[type="color"].glass-input {
+  padding: 4px;
+}
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type="color"]::-webkit-color-swatch {
+  border: 1px solid var(--rim);
+  border-radius: calc(var(--rad) - 10px);
+}
+input[type="color"]::-moz-color-swatch {
+  border: 1px solid var(--rim);
+  border-radius: calc(var(--rad) - 10px);
+}
+
+.form-label-glass {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ts);
+  margin-bottom: 6px;
+}
+
+.form-group-glass { margin-bottom: 16px; }
+
+/* DISABLED (Release 7 paused) — Abyss-only per user decision. Wisteria +
+   Tempest floating labels (Sprint 36/37) preserved below for reference /
+   future revival: docs/releases/release-07-plan.md
+[data-theme="wisteria"] .form-group-glass,
+[data-theme="tempest"] .form-group-glass {
+  position: relative;
+  margin-top: 24px;
+}
+
+[data-theme="wisteria"] .form-group-glass .form-label-glass,
+[data-theme="tempest"] .form-group-glass .form-label-glass {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  margin-bottom: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--th);
+  pointer-events: none;
+  z-index: 2;
+  transition: top 0.2s cubic-bezier(0.34, 1.50, 0.64, 1),
+              left 0.2s cubic-bezier(0.34, 1.50, 0.64, 1),
+              font-size 0.2s ease,
+              color 0.2s ease;
+}
+
+[data-theme="wisteria"] .form-group-glass.is-focused .form-label-glass,
+[data-theme="wisteria"] .form-group-glass.has-value .form-label-glass,
+[data-theme="tempest"] .form-group-glass.is-focused .form-label-glass,
+[data-theme="tempest"] .form-group-glass.has-value .form-label-glass {
+  top: -20px;
+  left: 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ts);
+  max-width: calc(100% - 20px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-theme="wisteria"] .form-group-glass.is-focused .form-label-glass,
+[data-theme="tempest"] .form-group-glass.is-focused .form-label-glass {
+  color: var(--ac);
+}
+
+[data-theme="wisteria"] .form-group-glass .glass-input::placeholder,
+[data-theme="wisteria"] .form-group-glass .glass-textarea::placeholder,
+[data-theme="tempest"] .form-group-glass .glass-input::placeholder,
+[data-theme="tempest"] .form-group-glass .glass-textarea::placeholder {
+  color: transparent;
+}
+
+[data-theme="wisteria"] .form-group-glass--static,
+[data-theme="tempest"] .form-group-glass--static {
+  margin-top: 0;
+}
+
+[data-theme="wisteria"] .form-group-glass--static .form-label-glass,
+[data-theme="tempest"] .form-group-glass--static .form-label-glass {
+  position: static;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--ts);
+  margin-bottom: 6px;
+  max-width: none;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+*/
+
+/* ── Segmented Type toggle (Sprint 36) — replaces raw Bootstrap radio
+   buttons with a proper pill control. Styled entirely with existing
+   tokens, so it renders correctly on every theme, not just Wisteria —
+   this was a structural HTML change (every theme used to get Bootstrap's
+   default radio appearance here), not a Wisteria-only visual tweak. */
+.type-toggle {
+  position: relative;
+  display: inline-flex;
+  background: var(--gl);
+  border: 1px solid var(--gb);
+  border-radius: 999px;
+  padding: 4px;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.type-toggle-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.type-toggle-option {
+  padding: 7px 20px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ts);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.type-toggle-input:checked + .type-toggle-option {
+  background: var(--as);
+  color: var(--ac);
+}
+
+.type-toggle-input:focus-visible + .type-toggle-option {
+  outline: 2px solid var(--ac);
+  outline-offset: 2px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   GLASS TABLE
+   ───────────────────────────────────────────────────────────── */
+.glass-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 4px;
+}
+
+/* Caps the transaction table to ~10 visible rows (each page still fetches
+   25) with an internal scroll for the rest, instead of the card growing to
+   fit every row. Scrollbar hidden rather than themed — Chrome/Edge on
+   Windows render native up/down arrow buttons for ANY styled scrollbar in
+   "classic" (non-overlay) mode regardless of the element's shape, which
+   ::-webkit-scrollbar-button cannot override (confirmed against the
+   notification panel, Sprint 21) — hiding it avoids the inconsistency.
+   Still fully scrollable via wheel/trackpad/touch in both directions. */
+.table-scroll-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 520px;
+  scrollbar-width: none;
+}
+.table-scroll-wrap::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Transaction list pagination (Sprint 21) */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px 0 4px;
+}
+.pagination-bar:empty { display: none; }
+
+.pagination-info {
+  font-size: 0.82rem;
+  color: var(--th);
+  white-space: nowrap;
+}
+
+.pagination-bar .btn-glass:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Sprint 53 (UI-03): first/last + direct page-jump controls */
+.pagination-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pagination-jump-input {
+  width: 64px;
+  text-align: center;
+  padding: 8px 6px;
+}
+
+.glass-table thead th {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--th);
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--gb);
+}
+
+.glass-table tbody tr {
+  background: var(--gl);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  transition: transform 0.22s cubic-bezier(0.34, 1.50, 0.64, 1),
+              background 0.22s ease;
+  cursor: default;
+}
+
+.glass-table tbody tr:hover {
+  transform: translateX(4px);
+  background: var(--as);
+}
+
+.glass-table tbody td {
+  padding: 12px 14px;
+  font-size: 0.875rem;
+  color: var(--tp);
+  border-top: 1px solid var(--gb);
+}
+
+.glass-table tbody td:first-child { border-radius: calc(var(--rad) - 8px) 0 0 calc(var(--rad) - 8px); }
+.glass-table tbody td:last-child  { border-radius: 0 calc(var(--rad) - 8px) calc(var(--rad) - 8px) 0; }
+
+/* ─────────────────────────────────────────────────────────────
+   BADGES & PILLS
+   ───────────────────────────────────────────────────────────── */
+.glass-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+
+.badge-income {
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--up);
+  border: 1px solid rgba(52, 211, 153, 0.30);
+}
+
+.badge-expense {
+  background: rgba(251, 113, 133, 0.15);
+  color: var(--dn);
+  border: 1px solid rgba(251, 113, 133, 0.30);
+}
+
+.badge-accent {
+  background: var(--as);
+  color: var(--ac);
+  border: 1px solid var(--ag);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   GLASS MODAL — Z+4 (strongest glass + dimming layer)
+   ───────────────────────────────────────────────────────────── */
+.glass-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glass-modal {
+  background: var(--gl);
+  backdrop-filter: var(--blur-modal);
+  -webkit-backdrop-filter: var(--blur-modal);
+  border: 1px solid var(--gb);
+  border-radius: var(--rad);
+  box-shadow: var(--shh);
+  padding: 28px;
+  width: min(480px, 92vw);
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.glass-modal-title {
+  font-family: var(--fh);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--tp);
+  letter-spacing: -0.3px;
+}
+
+.glass-modal-close {
+  background: none;
+  border: none;
+  color: var(--th);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: color 0.2s, background 0.2s;
+}
+.glass-modal-close:hover {
+  color: var(--tp);
+  background: var(--as);
+}
+
+.glass-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gb);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PROGRESS BAR
+   ───────────────────────────────────────────────────────────── */
+.glass-progress {
+  height: 3px;
+  background: var(--gb);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.glass-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ac), var(--ac2));
+  transition: width 0.6s cubic-bezier(0.34, 1.50, 0.64, 1);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   UTILITIES
+   ───────────────────────────────────────────────────────────── */
+.glass-divider {
+  height: 1px;
+  background: var(--gb);
+  margin: 12px 0;
+  opacity: 0.6;
+}
+
+.amount-positive { color: var(--up); font-weight: 600; }
+.amount-negative { color: var(--dn); font-weight: 600; }
+
+.colour-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--th);
+  font-size: 0.9rem;
+}
+
+.glass-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid var(--gb);
+  border-top-color: var(--ac);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.glass-grid   { display: grid; gap: 12px; }
+.glass-grid-4 { grid-template-columns: repeat(4, 1fr); }
+.glass-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.glass-grid-2 { grid-template-columns: repeat(2, 1fr); }
+
+/* ─────────────────────────────────────────────────────────────
+   FOOTER (debug info — vulnerability preserved)
+   ───────────────────────────────────────────────────────────── */
+.glass-footer {
+  margin-top: 48px;
+  padding: 16px;
+  background: var(--gl);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-top: 1px solid var(--gb);
+  border-radius: var(--rad);
+  font-size: 0.72rem;
+  color: var(--th);
+  text-align: center;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   NAV TABS
+   ───────────────────────────────────────────────────────────── */
+.nav-tabs {
+  border-bottom: 1px solid var(--gb) !important;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.nav-tabs .nav-link {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: calc(var(--rad) - 6px) !important;
+  color: var(--ts) !important;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 7px 16px;
+  transition: transform 0.22s cubic-bezier(0.34, 1.50, 0.64, 1),
+              background 0.22s ease, color 0.22s ease !important;
+}
+
+.nav-tabs .nav-link:hover {
+  background: var(--as) !important;
+  color: var(--tp) !important;
+  border-color: transparent !important;
+  transform: translateY(-1px);
+}
+
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-link:focus {
+  background: var(--as) !important;
+  border-color: var(--ag) !important;
+  color: var(--ac) !important;
+  font-weight: 600;
+}
+
+.tab-content { padding-top: 16px; }
+
+/* ─────────────────────────────────────────────────────────────
+   PROGRESS BARS (Bootstrap)
+   ───────────────────────────────────────────────────────────── */
+.progress {
+  background: var(--gb) !important;
+  border-radius: 999px !important;
+  overflow: hidden;
+}
+
+.progress-bar {
+  background: linear-gradient(90deg, var(--ac), var(--ac2)) !important;
+  border-radius: 999px !important;
+  transition: width 0.6s cubic-bezier(0.34, 1.50, 0.64, 1) !important;
+}
+
+.progress-bar.bg-danger  { background: var(--dn)  !important; }
+.progress-bar.bg-warning { background: var(--ac2) !important; }
+.progress-bar.bg-success { background: var(--up)  !important; }
+.progress-bar.bg-info    { background: var(--ac)  !important; }
+
+/* ─────────────────────────────────────────────────────────────
+   BOOTSTRAP OVERRIDES
+   ───────────────────────────────────────────────────────────── */
+
+/* Card */
+.card {
+  background: var(--gl) !important;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--gb) !important;
+  border-radius: var(--rad) !important;
+  box-shadow: var(--sh) !important;
+  color: var(--tp) !important;
+  transition: transform 0.32s cubic-bezier(0.34, 1.50, 0.64, 1),
+              box-shadow 0.32s cubic-bezier(0.34, 1.50, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.card-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--gb) !important;
+  color: var(--tp) !important;
+  font-weight: 600;
+}
+
+.card-body { color: var(--tp) !important; }
+
+/* Table */
+.table {
+  color: var(--tp) !important;
+  --bs-table-bg: transparent !important;
+  --bs-table-color: var(--tp) !important;
+}
+
+.table th {
+  color: var(--th) !important;
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid var(--gb) !important;
+}
+
+.table td {
+  color: var(--tp) !important;
+  border-bottom: 1px solid var(--gb) !important;
+  vertical-align: middle;
+}
+
+.table-hover tbody tr:hover {
+  color: var(--tp) !important;
+  background: var(--as) !important;
+  transform: translateX(4px);
+  transition: transform 0.22s cubic-bezier(0.34, 1.50, 0.64, 1), background 0.22s ease;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: rgba(255,255,255,0.025) !important;
+  --bs-table-accent-bg: transparent !important;
+}
+
+/* Strip row colour highlighting — type shown via badge/text */
+.table-success,
+.table-success > td, .table-success > th, tr.table-success {
+  background-color: transparent !important;
+  --bs-table-accent-bg: transparent !important;
+  --bs-table-color-state: var(--tp) !important;
+  --bs-table-bg-state: transparent !important;
+  color: var(--tp) !important;
+}
+
+.table-danger,
+.table-danger > td, .table-danger > th, tr.table-danger {
+  background-color: transparent !important;
+  --bs-table-accent-bg: transparent !important;
+  --bs-table-color-state: var(--tp) !important;
+  --bs-table-bg-state: transparent !important;
+  color: var(--tp) !important;
+}
+
+.table-warning,
+.table-warning > td, .table-warning > th {
+  background-color: transparent !important;
+  --bs-table-accent-bg: transparent !important;
+  --bs-table-bg-state: transparent !important;
+  color: var(--tp) !important;
+}
+
+.table-info,
+.table-info > td, .table-info > th {
+  background-color: transparent !important;
+  --bs-table-accent-bg: transparent !important;
+  --bs-table-bg-state: transparent !important;
+  color: var(--tp) !important;
+}
+
+/* Form */
+.form-control,
+.form-select {
+  background: var(--gl) !important;
+  border-top:    1px solid var(--rim)   !important;
+  border-left:   1px solid var(--rim-l) !important;
+  border-right:  1px solid var(--rim-r) !important;
+  border-bottom: 1px solid var(--rim-b) !important;
+  color: var(--tp) !important;
+  border-radius: calc(var(--rad) - 4px) !important;
+}
+
+.form-control::placeholder { color: var(--th) !important; }
+
+.form-control:focus,
+.form-select:focus {
+  background: var(--gl) !important;
+  border-top-color: var(--ac) !important;
+  box-shadow: 0 0 0 2px var(--as) !important;
+  color: var(--tp) !important;
+}
+
+.form-select option { background: var(--surface); color: var(--tp); }
+.form-label { color: var(--ts) !important; font-weight: 500; }
+
+/* Bootstrap modal — Z+4 */
+.modal-content {
+  background: var(--gl) !important;
+  backdrop-filter: var(--blur-modal) !important;
+  -webkit-backdrop-filter: var(--blur-modal) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: var(--rad) !important;
+  box-shadow: var(--shh) !important;
+  color: var(--tp) !important;
+}
+
+.modal-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--gb) !important;
+  color: var(--tp) !important;
+}
+
+.modal-footer {
+  background: transparent !important;
+  border-top: 1px solid var(--gb) !important;
+}
+
+.modal-title { color: var(--tp) !important; }
+.btn-close-white { filter: invert(1); }
+
+.modal-backdrop {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Alerts */
+.alert {
+  background: var(--gl) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: var(--rad) !important;
+  color: var(--tp) !important;
+}
+
+
+/* Badges */
+.badge.bg-success { background: rgba(52,211,153,0.20)  !important; color: var(--up) !important; border: 1px solid rgba(52,211,153,0.35)   !important; }
+.badge.bg-danger  { background: rgba(251,113,133,0.20) !important; color: var(--dn) !important; border: 1px solid rgba(251,113,133,0.35)  !important; }
+.badge.bg-warning { background: var(--as) !important; color: var(--ac2) !important; }
+.badge.bg-primary { background: var(--as) !important; color: var(--ac)  !important; }
+
+/* Buttons */
+.btn {
+  backdrop-filter: var(--blur) !important;
+  -webkit-backdrop-filter: var(--blur) !important;
+  border-radius: calc(var(--rad) - 4px) !important;
+  font-weight: 600 !important;
+  font-family: var(--fb) !important;
+  transition: transform 0.28s cubic-bezier(0.34, 1.50, 0.64, 1),
+              box-shadow 0.28s ease,
+              background 0.22s ease !important;
+}
+.btn:hover  { transform: translateY(-2px) scale(1.02) !important; }
+.btn:focus  { outline: none !important; box-shadow: 0 0 0 2px var(--as) !important; }
+
+.btn-primary {
+  background: var(--as) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: var(--tp) !important;
+  box-shadow: 0 2px 12px var(--ag) !important;
+}
+.btn-primary:hover {
+  background: rgba(129,140,248,0.20) !important;
+  box-shadow: 0 6px 22px var(--ag) !important;
+  color: var(--tp) !important;
+}
+
+.btn-danger {
+  background: rgba(251,113,133,0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: var(--tp) !important;
+  box-shadow: 0 2px 12px rgba(251,113,133,0.10) !important;
+}
+.btn-danger:hover {
+  background: rgba(251,113,133,0.22) !important;
+  box-shadow: 0 6px 22px rgba(251,113,133,0.26) !important;
+  color: var(--tp) !important;
+}
+
+.btn-success {
+  background: rgba(52,211,153,0.11) !important;
+  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+  color: var(--tp) !important;
+  box-shadow: 0 2px 12px rgba(52,211,153,0.10) !important;
+}
+.btn-success:hover {
+  background: rgba(52,211,153,0.22) !important;
+  box-shadow: 0 6px 22px rgba(52,211,153,0.24) !important;
+  color: var(--tp) !important;
+}
+
+.btn-warning {
+  background: var(--as) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: var(--tp) !important;
+  box-shadow: 0 2px 12px var(--ag) !important;
+}
+.btn-warning:hover {
+  background: rgba(129,140,248,0.20) !important;
+  color: var(--tp) !important;
+}
+
+.btn-secondary {
+  background: var(--gl) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: var(--tp) !important;
+  box-shadow: var(--sh) !important;
+}
+.btn-secondary:hover {
+  background: var(--as) !important;
+  color: var(--tp) !important;
+}
+
+.btn-outline-primary {
+  background: transparent !important;
+  border: 1px solid var(--ag) !important;
+  color: var(--tp) !important;
+}
+.btn-outline-primary:hover {
+  background: var(--as) !important;
+  color: var(--tp) !important;
+}
+
+.btn-outline-danger {
+  background: transparent !important;
+  border: 1px solid rgba(251,113,133,0.35) !important;
+  color: var(--tp) !important;
+}
+.btn-outline-danger:hover {
+  background: rgba(251,113,133,0.12) !important;
+  color: var(--tp) !important;
+}
+
+.btn-outline-secondary,
+.btn-outline-light {
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: var(--tp) !important;
+}
+.btn-outline-secondary:hover,
+.btn-outline-light:hover {
+  background: var(--as) !important;
+  color: var(--tp) !important;
+}
+
+.btn-lg { padding: 12px 28px !important; font-size: 1rem !important; }
+.btn-sm { padding: 5px 14px !important;  font-size: 0.78rem !important; }
+
+.spinner-border { color: var(--ac) !important; }
+
+.form-check-input:checked {
+  background-color: var(--ac) !important;
+  border-color: var(--ac) !important;
+}
+
+/* Dropdown */
+.dropdown-menu {
+  background: var(--gl) !important;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--gb) !important;
+  border-radius: var(--rad) !important;
+  box-shadow: var(--shh) !important;
+}
+
+.dropdown-item {
+  color: var(--ts) !important;
+  border-radius: calc(var(--rad) - 8px);
+  margin: 2px 4px;
+  width: calc(100% - 8px);
+}
+.dropdown-item:hover {
+  background: var(--as) !important;
+  color: var(--tp) !important;
+}
+.dropdown-divider { border-color: var(--gb) !important; }
+
+/* ─────────────────────────────────────────────────────────────
+   CTF FLAG TOAST — Sprint 43
+   App-wide (loaded from base.html), independent of any specific
+   page's own CSS, since exploitation can happen anywhere.
+   ───────────────────────────────────────────────────────────── */
+.ctf-toast-stack {
+  position: fixed;
+  top: 20px;
+  right: 28px;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(340px, calc(100vw - 40px));
+}
+
+.ctf-toast {
+  background: var(--gl);
+  backdrop-filter: var(--blur-modal);
+  -webkit-backdrop-filter: var(--blur-modal);
+  border: 1px solid var(--ag);
+  border-radius: var(--rad);
+  box-shadow: var(--shh);
+  padding: 14px 16px;
+  animation: ctf-toast-in 0.32s cubic-bezier(0.34, 1.50, 0.64, 1);
+}
+
+@keyframes ctf-toast-in {
+  0%   { opacity: 0; transform: translateX(24px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+.ctf-toast-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ac);
+  margin-bottom: 4px;
+}
+
+.ctf-toast-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--tp);
+  margin-bottom: 6px;
+}
+
+.ctf-toast-flag {
+  font-family: 'SF Mono', 'Fira Code', ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--ts);
+  background: var(--as);
+  border-radius: 6px;
+  padding: 4px 8px;
+  word-break: break-all;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RESPONSIVE — small screens
+   Sidebar remains click-toggle only (no auto-collapse).
+   ───────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .glass-grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .glass-grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .glass-grid-4,
+  .glass-grid-3,
+  .glass-grid-2 { grid-template-columns: 1fr; }
+
+  .main-content { padding: 24px 16px 40px; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DASHBOARD SYSTEM — Sprint 8
+   Tab bar, widget cards, period selector, minimize controls
+   ───────────────────────────────────────────────────────────── */
+
+/* Dashboard tab buttons */
+.dashboard-tab {
+  background: var(--gl);
+  border: 1px solid var(--rim);
+  color: var(--ts);
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 0.82rem;
+  font-family: var(--fb);
+  cursor: grab;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+.dashboard-tab:active {
+  cursor: grabbing;
+}
+.dashboard-tab:hover {
+  background: var(--as);
+  color: var(--tp);
+}
+.dashboard-tab.active {
+  background: var(--as);
+  border-color: var(--ac);
+  color: var(--tp);
+  font-weight: 600;
+}
+
+/* Widget card — inherits glass-card, adds header layout */
+.widget-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.widget-card.is-minimized {
+  align-self: start;
+}
+
+/* Same trick, generalized for any plain .glass-card used as a minimizable
+   card outside the Dashboard's widget system (e.g. Loan Intelligence) — a
+   no-op unless the card sits in a grid/flex container that would otherwise
+   stretch it to match a taller sibling. */
+.glass-card.is-minimized {
+  align-self: start;
+}
+
+/* Loans page reuses .widget-minimize-btn's look but not its 26x26 size —
+   these cards have no settings/remove buttons alongside it (unlike
+   Dashboard widgets, where matching those smaller siblings matters for
+   visual consistency), so there's nothing stopping a real touch-target-size
+   fix here (44x44 minimum, WCAG/Apple HIG/Material). Same sizing applies to
+   the info ("i") button added alongside it (Sprint 33 follow-up). */
+.loan-card-minimize-btn,
+.loan-card-info-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+
+/* Bootstrap Popover, restyled via its own CSS custom properties to match
+   the glass design system instead of Bootstrap's default light theme.
+   Applied through data-bs-custom-class so it only affects the loan-card
+   info popovers, not any other Bootstrap popover/tooltip on the site.
+   Trigger is 'focus' (click-to-open, dismiss on next click elsewhere) —
+   deliberately not hover, since hover-only help text is unusable on touch
+   devices (WCAG / touch-target guidance). */
+.loan-info-popover.popover {
+  --bs-popover-max-width: 280px;
+  --bs-popover-font-size: 0.82rem;
+  --bs-popover-bg: var(--surface);
+  --bs-popover-border-color: var(--rim);
+  --bs-popover-border-radius: 12px;
+  --bs-popover-header-bg: var(--surface);
+  --bs-popover-header-color: var(--tp);
+  --bs-popover-header-border-color: var(--rim);
+  --bs-popover-body-color: var(--ts);
+  --bs-popover-body-padding-x: 14px;
+  --bs-popover-body-padding-y: 12px;
+  box-shadow: var(--shh);
+}
+
+/* ── Loans page card grid (Sprint 33 relayout) ───────────────────────────
+   Rebuilt to mirror the Dashboard widget grid exactly (#widgetGrid uses the
+   same minmax/row-height values) — every card gets the same fixed height
+   via grid-auto-rows, the same way every Dashboard widget does, instead of
+   sizing to its own content and then needing per-card min/max-height
+   patches to paper over the resulting mismatches. Content that doesn't fit
+   scrolls inside .loan-card-body, exactly like .widget-body already does. */
+.loan-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+  grid-auto-rows: 360px;
+  gap: 20px;
+}
+
+.loan-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* .glass-card-header normally has no horizontal padding of its own — it
+   relies on the parent .glass-card's padding:22px for its inset. .loan-card
+   zeroes that out (same as .widget-card does for Dashboard widgets), so
+   without this the title and minimize button sit flush against the card
+   edge and get clipped by the rounded corner (.loan-card has
+   overflow:hidden). Mirrors .widget-header's own padding for the same
+   reason. */
+.loan-card .glass-card-header {
+  padding: 14px 18px 12px;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.loan-card-body {
+  flex: 1;
+  min-height: 0;
+  max-height: 800px; /* transition ceiling, not a real constraint — see the .is-collapsed comment below */
+  overflow-y: auto;
+  opacity: 1;
+  padding: 16px 18px;
+  transition: max-height 0.2s ease, opacity 0.2s ease;
+}
+/* Collapsed state animates the same max-height, just capped to 0 instead of
+   800px — max-height always wins over flex-grow's natural sizing when it's
+   the smaller constraint, so this collapses the body correctly regardless
+   of the flex:1 above. Combined with .glass-card.is-minimized's
+   align-self:start (already defined above), the whole card shrinks to
+   header-only instead of just leaving its grid-row space empty. */
+.loan-card-body.is-collapsed {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+/* Chart loading skeleton (Sprint 33) — shown over the canvas while Chart.js
+   has nothing to draw yet, instead of a blank axis-less frame. */
+.chart-loading-spinner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Undo-delete toast (Sprint 33) — self-built, not Swal-based (see the JS
+   comment on showUndoableEventDelete for why); a plain fixed bar keeps it
+   trivially identical between both versions instead of routing through
+   whichever Swal implementation happens to be loaded. */
+.undo-delete-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid var(--rim);
+  border-radius: 12px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: var(--shh);
+  z-index: 1000;
+  font-size: 0.85rem;
+  color: var(--tp);
+}
+
+.widget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--rim);
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.widget-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.widget-drag-handle {
+  cursor: grab;
+  color: var(--th);
+  font-size: 1rem;
+  line-height: 1;
+  user-select: none;
+  flex-shrink: 0;
+}
+.widget-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Sprint 53 (UI-02): dashboard stat cards' drag handle — same look as
+   .widget-drag-handle, but absolutely positioned in the corner since
+   .stat-card's layout (label/value/sub stacked) has no header row to sit
+   inline with. */
+.stat-card-drag-handle {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  cursor: grab;
+  color: var(--th);
+  font-size: 1rem;
+  line-height: 1;
+  user-select: none;
+}
+.stat-card-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* SortableJS's placeholder for the item currently being dragged */
+.sortable-ghost {
+  opacity: 0.4;
+}
+
+.widget-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--tp);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.widget-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Period selector pill group */
+.period-bar {
+  display: flex;
+  gap: 2px;
+  background: var(--gf);
+  border: 1px solid var(--rim);
+  border-radius: 14px;
+  padding: 2px;
+}
+
+.period-btn {
+  background: transparent;
+  border: none;
+  color: var(--ts);
+  font-size: 0.7rem;
+  font-family: var(--fb);
+  padding: 3px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.period-btn:hover  { background: var(--gh); color: var(--tp); }
+.period-btn.active { background: rgba(99,102,241,0.40); color: var(--tp); font-weight: 600; }
+
+/* Minimize / expand button */
+.widget-minimize-btn {
+  background: transparent;
+  border: 1px solid var(--rim);
+  color: var(--ts);
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.widget-minimize-btn:hover { background: var(--gh); color: var(--tp); }
+
+/* Widget body — padding around chart/table content */
+.widget-body {
+  padding: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Minimized compact bar shown when widget is collapsed */
+.widget-mini {
+  padding: 10px 16px;
+  border-top: 1px solid var(--rim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.widget-mini-metric {
+  font-size: 0.85rem;
+  color: var(--ts);
+  font-weight: 500;
+}
+
+/* Customize panel widget toggle pills */
+.customize-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--gf);
+  border: 1px solid var(--rim);
+  border-radius: 20px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--ts);
+  transition: background 0.15s, color 0.15s;
+  user-select: none;
+}
+.customize-pill:hover { background: var(--gh); color: var(--tp); }
+.customize-pill input[type="checkbox"] {
+  accent-color: rgba(99,102,241,0.9);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DASHBOARD CRUD — Sprint 9
+   Tab add/edit/delete controls, widget remove button, add-widget panel
+   ───────────────────────────────────────────────────────────── */
+
+/* "+" button to create a new dashboard */
+.tab-add-btn {
+  background: var(--gl);
+  border: 1px dashed var(--rim);
+  color: var(--ts);
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 1rem;
+  font-family: var(--fb);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  line-height: 1.4;
+}
+.tab-add-btn:hover {
+  background: var(--as);
+  color: var(--tp);
+  border-color: var(--ac);
+}
+
+/* Edit (✏) and Delete (🗑) icon buttons next to active tab */
+.tab-ctrl-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 5px;
+  color: var(--ts);
+  font-size: 0.78rem;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+.tab-ctrl-btn:hover        { background: var(--as); color: var(--tp); }
+.tab-ctrl-btn.danger:hover { color: var(--dn); }
+
+/* Permanent remove (×) button on each widget card header */
+.widget-remove-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ts);
+  border-radius: 5px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.widget-remove-btn:hover {
+  color: var(--dn);
+  border-color: rgba(239,68,68,0.40);
+  background: rgba(239,68,68,0.08);
+}
+
+/* Section headings inside the customize panel */
+.customize-section-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ts);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 14px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--rim);
+}
+.customize-section-title:first-child { margin-top: 0; }
+
+/* Add-widget card grid */
+.add-widget-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.add-widget-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--gf);
+  border: 1px solid var(--rim);
+  border-radius: 8px;
+  flex: 1 1 220px;
+  min-width: 0;
+  transition: border-color 0.15s;
+}
+.add-widget-card:hover { border-color: rgba(99,102,241,0.40); }
+
+.add-widget-card.already-added {
+  opacity: 0.45;
+}
+
+.add-widget-card-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tp);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   WIDGET SETTINGS — Sprint 9b
+   Settings button, chart type picker, filter checklist
+   ───────────────────────────────────────────────────────────── */
+
+/* ⚙ Settings icon button on widget header */
+.widget-settings-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #fff;
+  border-radius: 5px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.widget-settings-btn:hover {
+  color: var(--tp);
+  border-color: var(--rim);
+  background: var(--gh);
+}
+
+/* Chart type picker in settings modal */
+.chart-type-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chart-type-btn {
+  background: var(--gf);
+  border: 1px solid var(--rim);
+  color: var(--ts);
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-size: 0.82rem;
+  font-family: var(--fb);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.chart-type-btn:hover {
+  background: var(--gh);
+  color: var(--tp);
+}
+.chart-type-btn.active {
+  background: rgba(99,102,241,0.25);
+  border-color: rgba(99,102,241,0.60);
+  color: var(--tp);
+  font-weight: 600;
+}
+
+/* Category / account filter checklist */
+.filter-checklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.filter-check-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--gf);
+  border: 1px solid var(--rim);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.80rem;
+  color: var(--ts);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s, color 0.15s;
+}
+.filter-check-item:hover { background: var(--gh); color: var(--tp); }
+.filter-check-item input[type="checkbox"] {
+  accent-color: rgba(99,102,241,0.9);
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+
+/* Chart color picker in settings modal (Sprint 20) */
+.color-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.color-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--gf);
+  border: 1px solid var(--rim);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.color-picker-item-label {
+  font-size: 0.82rem;
+  color: var(--ts);
+}
+
+.color-picker-item-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-picker-item input[type="color"] {
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--rim);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.color-picker-reset-btn {
+  background: none;
+  border: none;
+  color: var(--th);
+  font-size: 0.72rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+.color-picker-reset-btn:hover { color: var(--tp); }
+
+/* Generic compact chip row — used above a widget's chart so alerts/stats
+   are visible without scrolling the widget (Sprint 20) */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.anomaly-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--gf);
+  border: 1px solid var(--dn);
+  color: var(--dn);
+  white-space: nowrap;
+}
+.anomaly-chip-clear {
+  border-color: var(--rim);
+  color: var(--th);
+  font-weight: 500;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--gf);
+  white-space: nowrap;
+}
+.stat-chip-positive { border: 1px solid var(--up); color: var(--up); }
+.stat-chip-negative { border: 1px solid var(--dn); color: var(--dn); }
+
+/* Flash messages start below the fixed notification bell (its dismiss
+   button otherwise sits directly under the bell in the top-right corner) */
+.flash-messages-wrap {
+  margin-top: 36px;
+}
+
+/* ── Notification bell + panel (Sprint 21) ──────────────────────────── */
+.notification-bell-wrap {
+  position: fixed;
+  top: 20px;
+  right: 28px;
+  z-index: 250;
+}
+
+.notification-bell-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--gl);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--gb);
+  color: var(--ts);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.notification-bell-btn:hover { color: var(--tp); }
+
+.bell-icon { width: 18px; height: 18px; }
+
+.notification-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--dn);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* Outer frame owns the rounded corners but does NOT scroll itself — a
+   scrollbar on a rounded-corner element gets its up/down buttons clipped
+   by the curve. Only .notification-list (no border-radius) scrolls. */
+.notification-panel {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  width: 340px;
+  max-height: 420px;
+  background: var(--gl);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--gb);
+  border-radius: var(--rad);
+  box-shadow: var(--sh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.notification-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rim);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tp);
+  flex-shrink: 0;
+}
+
+.notification-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.notification-markall-btn,
+.notification-deleteall-btn {
+  background: none;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.notification-markall-btn { color: var(--th); }
+.notification-markall-btn:hover { color: var(--tp); }
+.notification-deleteall-btn { color: var(--dn); }
+.notification-deleteall-btn:hover { color: var(--tp); }
+
+/* Scrollbar hidden entirely rather than themed — Chrome/Edge on Windows
+   render the up/down arrow buttons via the native OS scrollbar theme in
+   "classic" (non-overlay) mode, which ::-webkit-scrollbar-button cannot
+   override; hiding it outright avoids the inconsistency instead of
+   chasing an unfixable per-browser/OS rendering quirk. Still fully
+   scrollable via wheel/trackpad/touch. */
+.notification-list {
+  padding: 6px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  scrollbar-width: none;
+}
+.notification-list::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* ── AI Advisor chat bubble + panel (Sprint 23) — bottom-right so it
+   never overlaps the notification bell (top-right) ─────────────────── */
+.chat-bubble-wrap {
+  position: fixed;
+  bottom: 24px;
+  right: 28px;
+  z-index: 250;
+}
+
+.chat-bubble-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--gl);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--gb);
+  color: var(--ac);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--sh);
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.chat-bubble-btn:hover { color: var(--tp); transform: scale(1.05); }
+
+.chat-icon { width: 22px; height: 22px; }
+
+.chat-panel {
+  position: absolute;
+  bottom: 58px;
+  right: 0;
+  width: 360px;
+  height: 480px;
+  background: var(--gl);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--gb);
+  border-radius: var(--rad);
+  box-shadow: var(--sh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rim);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tp);
+  flex-shrink: 0;
+}
+
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+}
+
+.chat-clear-btn {
+  background: none;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--dn);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.chat-clear-btn:hover { color: var(--tp); }
+
+/* Same scrollbar-hidden approach as .notification-list (see comment above)
+   — only this inner list scrolls, the outer .chat-panel frame doesn't. */
+.chat-message-list {
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chat-message-list::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.chat-message {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 14px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+.chat-message-user {
+  align-self: flex-end;
+  background: var(--as);
+  color: var(--tp);
+  border-bottom-right-radius: 4px;
+}
+.chat-message-assistant {
+  align-self: flex-start;
+  background: var(--gl);
+  border: 1px solid var(--gb);
+  color: var(--tp);
+  border-bottom-left-radius: 4px;
+}
+.chat-message-pending {
+  align-self: flex-start;
+  color: var(--th);
+  font-style: italic;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--rim);
+  flex-shrink: 0;
+}
+
+.chat-input {
+  flex: 1;
+  background: var(--gl);
+  border: 1px solid var(--gb);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  color: var(--tp);
+  outline: none;
+}
+.chat-input:focus { border-color: var(--ac); }
+.chat-input::placeholder { color: var(--tp) !important; opacity: 1; }
+
+.chat-send-btn {
+  background: var(--ac);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chat-send-btn:hover { opacity: 0.9; }
+.chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.notification-item {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.notification-item:hover { background: rgba(255, 255, 255, 0.06); }
+.notification-item.is-unread { background: rgba(255, 255, 255, 0.04); }
+
+.notification-item-body { flex: 1; min-width: 0; }
+
+.notification-item-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tp);
+  margin-bottom: 2px;
+}
+
+.notification-item-message {
+  font-size: 0.78rem;
+  color: var(--ts);
+  line-height: 1.4;
+}
+
+.notification-item-time {
+  font-size: 0.7rem;
+  color: var(--th);
+  margin-top: 4px;
+}
+
+.notification-item-dismiss {
+  background: none;
+  border: none;
+  color: var(--th);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}
+.notification-item-dismiss:hover { color: var(--dn); }
+
+.notification-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--th);
+  font-size: 0.8rem;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   GLASS NOTIFICATIONS
+   Custom replacement for SweetAlert2's own rendering — the
+   window.Swal shim in theme-switcher.js builds this markup
+   directly, so there's no external library DOM/class-toggling
+   left to fight. Two pieces:
+   - .glass-toast          — non-blocking banner (success/error/
+                              info/loading), top-center, no backdrop.
+   - .glass-confirm-modal  — blocking yes/no dialog, reuses the
+                              existing .glass-modal-backdrop system.
+   ───────────────────────────────────────────────────────────── */
+
+.glass-toast-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.glass-toast {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 300px;
+  max-width: 440px;
+  padding: 14px 16px;
+  background: var(--gl);
+  backdrop-filter: var(--blur-modal);
+  -webkit-backdrop-filter: var(--blur-modal);
+  border: 1px solid var(--gb);
+  border-radius: calc(var(--rad) - 2px);
+  box-shadow: var(--shh);
+  overflow: hidden;
+  animation: glass-toast-in 0.32s cubic-bezier(0.34, 1.50, 0.64, 1);
+}
+.glass-toast.is-leaving {
+  animation: glass-toast-out 0.2s ease forwards;
+}
+
+@keyframes glass-toast-in {
+  from { transform: translateY(-16px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+@keyframes glass-toast-out {
+  from { transform: translateY(0);     opacity: 1; }
+  to   { transform: translateY(-12px); opacity: 0; }
+}
+
+.glass-toast-icon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  border: 1.5px solid transparent;
+}
+.glass-toast-success .glass-toast-icon { background: rgba(52, 211, 153, 0.14); border-color: var(--up);  color: var(--up); }
+.glass-toast-error   .glass-toast-icon { background: rgba(251, 113, 133, 0.14); border-color: var(--dn); color: var(--dn); }
+.glass-toast-warning .glass-toast-icon { background: rgba(45, 212, 191, 0.14); border-color: var(--ac2); color: var(--ac2); }
+.glass-toast-info    .glass-toast-icon { background: var(--as); border-color: var(--ac); color: var(--ac); }
+.glass-toast-loading .glass-toast-icon { background: var(--as); border-color: var(--ac); }
+
+.glass-toast-loading .glass-toast-icon::after {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--ac);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.glass-toast-body { flex: 1; min-width: 0; }
+.glass-toast-title { font-family: var(--fh); font-size: 0.9rem;  font-weight: 700; color: var(--tp); }
+.glass-toast-text  { font-family: var(--fb); font-size: 0.8rem;  color: var(--ts); margin-top: 2px; }
+
+.glass-toast-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--th);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.glass-toast-close:hover { color: var(--tp); }
+
+.glass-toast-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--ac);
+  animation-name: glass-toast-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes glass-toast-progress {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+/* Confirm dialog — reuses .glass-modal-backdrop/.glass-modal, adds a centered icon */
+.glass-confirm-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  border: 1.5px solid transparent;
+}
+.glass-confirm-icon.icon-success { background: rgba(52, 211, 153, 0.14); border-color: var(--up);  color: var(--up); }
+.glass-confirm-icon.icon-error   { background: rgba(251, 113, 133, 0.14); border-color: var(--dn); color: var(--dn); }
+.glass-confirm-icon.icon-warning { background: rgba(45, 212, 191, 0.14); border-color: var(--ac2); color: var(--ac2); }
+.glass-confirm-icon.icon-info    { background: var(--as); border-color: var(--ac); color: var(--ac); }

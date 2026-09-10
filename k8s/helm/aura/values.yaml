@@ -1,0 +1,85 @@
+# Default values for the aura chart.
+# Each top-level section can be deployed independently — e.g.
+# `helm install aura ./k8s/helm/aura --set vulnerable.enabled=false`
+# deploys only the secure stack + monitoring.
+#
+# Init-script ConfigMaps (mysql-secure-init / mysql-vulnerable-init) are NOT
+# managed by this chart — generate them from database/*.sql before installing
+# (see k8s/README.md). Keeping large, frequently-changing SQL content out of
+# the chart avoids a second copy of database/ going stale inside k8s/helm/.
+
+secure:
+  enabled: true
+  namespace: aura-secure
+  image:
+    repository: aura-app-secure
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+  secretKey: secure-secret-key-change-in-production-xyz123
+  mysql:
+    rootPassword: SecureRootPass123!
+    user: aura_user
+    password: SecureUserPass123!
+    database: aura_secure
+    storage: 2Gi
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { cpu: 1000m, memory: 512Mi }
+
+vulnerable:
+  enabled: true
+  namespace: aura-vulnerable
+  image:
+    repository: aura-app-vulnerable
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+  secretKey: weak-secret-123
+  mysql:
+    rootPassword: VulnRootPass123!
+    user: aura_user
+    password: VulnUserPass123!
+    database: aura_vulnerable
+    storage: 2Gi
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { cpu: 1000m, memory: 512Mi }
+
+monitoring:
+  enabled: true
+  namespace: aura-monitoring
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    retention: 15d
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+  grafana:
+    image: grafana/grafana:10.4.2
+    adminUser: admin
+    adminPassword: admin # lab default — change on first login, or override via --set
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { cpu: 500m, memory: 256Mi }
+  mysqlExporter:
+    image: prom/mysqld-exporter:v0.15.1
+    resources:
+      requests: { cpu: 50m, memory: 64Mi }
+      limits: { cpu: 200m, memory: 128Mi }

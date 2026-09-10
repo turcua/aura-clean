@@ -1,0 +1,33 @@
+# TLS termination for app-secure via the minikube ingress addon (nginx).
+#
+# Exists so app-secure can be reached over real HTTPS: FLASK_ENV=production
+# (see 02-app.yaml) sets SESSION_COOKIE_SECURE=True in secure-version/config.py,
+# which means the session/CSRF cookie is dropped by browsers over plain HTTP.
+# Rather than weaken that to FLASK_ENV=development, this fronts app-secure with
+# TLS so the production cookie behavior actually works end-to-end.
+#
+# Requires: `minikube addons enable ingress`, and a TLS Secret named
+# aura-secure-tls in this namespace (self-signed cert for aura-secure.local —
+# see k8s/README.md for the exact openssl/kubectl commands).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-secure
+  namespace: aura-secure
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - aura-secure.local
+      secretName: aura-secure-tls
+  rules:
+    - host: aura-secure.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app-secure
+                port:
+                  number: 80

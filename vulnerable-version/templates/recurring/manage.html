@@ -1,0 +1,645 @@
+{% extends "base.html" %}
+{% block title %}Recurring Transactions - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 page-header">
+    <h1 class="page-title mb-0">Recurring Transactions</h1>
+    <div class="d-flex gap-2">
+        <button class="btn btn-secondary" onclick="triggerGeneration()">Run Now</button>
+        <button class="btn-glass btn-glass-secondary" data-bs-toggle="modal" data-bs-target="#addRecurringModal">
+            Add Recurring
+        </button>
+    </div>
+</div>
+
+<!-- Filter Tabs -->
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-recurring" type="button">All</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="active-tab" data-bs-toggle="tab" data-bs-target="#active-recurring" type="button">Active</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="paused-tab" data-bs-toggle="tab" data-bs-target="#paused-recurring" type="button">Paused</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="templates-tab" data-bs-toggle="tab" data-bs-target="#templates-recurring" type="button">Templates</button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="all-recurring">
+        <div id="allRecurringList"></div>
+    </div>
+    <div class="tab-pane fade" id="active-recurring">
+        <div id="activeRecurringList"></div>
+    </div>
+    <div class="tab-pane fade" id="paused-recurring">
+        <div id="pausedRecurringList"></div>
+    </div>
+    <div class="tab-pane fade" id="templates-recurring">
+        <div id="templatesList"></div>
+    </div>
+</div>
+
+<!-- ADD RECURRING MODAL -->
+<div class="modal fade" id="addRecurringModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Recurring Transaction</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addRecurringForm">
+                    <input type="hidden" name="user_id" value="{{ session.user_id }}">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Type</label>
+                                <select class="glass-select" name="type" id="addRType" onchange="toggleTransferFields('add')">
+                                    <option value="expense">Expense</option>
+                                    <option value="income">Income</option>
+                                    <option value="transfer">Transfer</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Amount</label>
+                                <input type="number" class="glass-input" name="amount" step="0.01" min="0.01" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">From Account</label>
+                                <select class="glass-select" name="account_id" id="addRAccount"></select>
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="addToAccountGroup" style="display:none;">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">To Account</label>
+                                <select class="glass-select" name="to_account_id" id="addRToAccount"></select>
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="addCategoryGroup">
+                            <!-- ENH-15/Sprint 57: searchable combobox, matching secure-version -->
+                            <div class="form-group-glass" style="position:relative;">
+                                <label for="addRCategorySearchInput" class="form-label-glass">Category</label>
+                                <input type="text" class="glass-input" id="addRCategorySearchInput" autocomplete="off" placeholder="Search or select category…">
+                                <input type="hidden" id="addRCategory" name="category_id">
+                                <div id="addRCategoryDropdown" class="searchable-select-dropdown" style="display:none;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Description</label>
+                        <input type="text" class="glass-input" name="description" placeholder="e.g., Monthly Rent">
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Link to Loan <span style="color:var(--th);">(optional — Sprint 51: keeps the generated amount in sync with the loan's current computed installment instead of the fixed amount above)</span></label>
+                        <select class="glass-select" name="loan_id" id="addRLoan">
+                            <option value="">No loan</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Frequency</label>
+                                <select class="glass-select" name="frequency">
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly" selected>Monthly</option>
+                                    <option value="yearly">Yearly</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Start Date</label>
+                                <input type="date" class="glass-input" name="start_date" id="addStartDate" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">End Date (optional)</label>
+                                <input type="date" class="glass-input" name="end_date">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="saveAsTemplate" name="is_template" value="true">
+                    <label class="form-check-label" for="saveAsTemplate">Save as Template only</label>
+                </div>
+                <div>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-secondary" id="saveRecurringBtn">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- USE TEMPLATE MODAL -->
+<div class="modal fade" id="useTemplateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Use Template: <span id="templateModalName"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="useTemplateId">
+                <input type="hidden" id="useTemplateUserId" value="{{ session.user_id }}">
+                <div class="form-group-glass">
+                    <label class="form-label-glass">Start Date</label>
+                    <input type="date" class="glass-input" id="useTemplateStart">
+                </div>
+                <div class="form-group-glass">
+                    <label class="form-label-glass">End Date (optional)</label>
+                    <input type="date" class="glass-input" id="useTemplateEnd">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="confirmUseTemplateBtn">▶ Activate</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT RECURRING MODAL -->
+<div class="modal fade" id="editRecurringModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Recurring Transaction</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editRecurringForm">
+                    <input type="hidden" name="rt_id" id="editRtId">
+                    <input type="hidden" name="user_id" value="{{ session.user_id }}">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Type</label>
+                                <select class="glass-select" name="type" id="editRType" onchange="toggleTransferFields('edit')">
+                                    <option value="expense">Expense</option>
+                                    <option value="income">Income</option>
+                                    <option value="transfer">Transfer</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Amount</label>
+                                <input type="number" class="glass-input" name="amount" id="editRAmount" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">From Account</label>
+                                <select class="glass-select" name="account_id" id="editRAccount"></select>
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="editToAccountGroup" style="display:none;">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">To Account</label>
+                                <select class="glass-select" name="to_account_id" id="editRToAccount"></select>
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="editCategoryGroup">
+                            <div class="form-group-glass" style="position:relative;">
+                                <label for="editRCategorySearchInput" class="form-label-glass">Category</label>
+                                <input type="text" class="glass-input" id="editRCategorySearchInput" autocomplete="off" placeholder="Search or select category…">
+                                <input type="hidden" id="editRCategory" name="category_id">
+                                <div id="editRCategoryDropdown" class="searchable-select-dropdown" style="display:none;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Description</label>
+                        <input type="text" class="glass-input" name="description" id="editRDesc">
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Link to Loan <span style="color:var(--th);">(optional — Sprint 51: keeps the generated amount in sync with the loan's current computed installment instead of the fixed amount above)</span></label>
+                        <select class="glass-select" name="loan_id" id="editRLoan">
+                            <option value="">No loan</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Frequency</label>
+                                <select class="glass-select" name="frequency" id="editRFreq">
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="yearly">Yearly</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Start Date</label>
+                                <input type="date" class="glass-input" name="start_date" id="editRStart">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">End Date</label>
+                                <input type="date" class="glass-input" name="end_date" id="editREnd">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="updateRecurringBtn">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const currentUserId = {{ session.user_id }};
+let allAccounts = [], allCategories = [], allLoans = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadAccounts();
+    loadCategories();
+    loadLoansForLink();
+    loadRecurring();
+    loadTemplates();
+    document.getElementById('saveRecurringBtn').addEventListener('click', saveRecurring);
+    document.getElementById('updateRecurringBtn').addEventListener('click', updateRecurring);
+    document.getElementById('confirmUseTemplateBtn').addEventListener('click', activateTemplate);
+    document.getElementById('addStartDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('useTemplateStart').value = new Date().toISOString().split('T')[0];
+    document.getElementById('templates-tab').addEventListener('shown.bs.tab', loadTemplates);
+    setupCategoryCombobox('add');
+    setupCategoryCombobox('edit');
+});
+
+function loadAccounts() {
+    fetch(`/api/accounts/list?user_id=${currentUserId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                allAccounts = data.accounts;
+                populateAccountSelects();
+            }
+        });
+}
+
+function loadCategories() {
+    fetch(`/api/categories/list?user_id=${currentUserId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                allCategories = data.categories;
+            }
+        });
+}
+
+function populateAccountSelects() {
+    ['addRAccount','addRToAccount','editRAccount','editRToAccount'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        sel.innerHTML = allAccounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+    });
+}
+
+// ENH-15/Sprint 57: searchable combobox, matching secure-version's pattern
+// (and the transaction form's ENH-10 pattern) — generalized over an id
+// prefix since this page needs two independent instances (Add + Edit).
+function categoryOptionLabel(c) {
+    return `[${c.type}] ${c.name}`;
+}
+
+function setupCategoryCombobox(prefix) {
+    const input = document.getElementById(`${prefix}RCategorySearchInput`);
+    const hidden = document.getElementById(`${prefix}RCategory`);
+    const dropdown = document.getElementById(`${prefix}RCategoryDropdown`);
+    if (!input || !hidden || !dropdown) return;
+
+    function render(filterText) {
+        const filter = (filterText || '').toLowerCase();
+        const matches = allCategories.filter(c => categoryOptionLabel(c).toLowerCase().includes(filter));
+        dropdown.innerHTML = matches.length === 0
+            ? `<div class="searchable-select-empty">No matching categories</div>`
+            : matches.map(c => `<div class="searchable-select-option" data-id="${c.id}">${categoryOptionLabel(c)}</div>`).join('');
+        dropdown.style.display = 'block';
+    }
+
+    dropdown.addEventListener('mousedown', (e) => {
+        const opt = e.target.closest('.searchable-select-option');
+        if (!opt) return;
+        e.preventDefault();
+        hidden.value = opt.dataset.id;
+        input.value = opt.textContent;
+        dropdown.style.display = 'none';
+    });
+    input.addEventListener('input', () => {
+        hidden.value = '';
+        render(input.value);
+    });
+    input.addEventListener('focus', () => render(input.value));
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const filter = input.value.toLowerCase();
+            const firstMatch = allCategories.find(c => categoryOptionLabel(c).toLowerCase().includes(filter));
+            if (firstMatch) {
+                hidden.value = firstMatch.id;
+                input.value = categoryOptionLabel(firstMatch);
+                dropdown.style.display = 'none';
+            }
+        } else if (e.key === 'Escape') {
+            dropdown.style.display = 'none';
+        }
+    });
+    input.addEventListener('blur', () => {
+        setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+    });
+}
+
+// Sprint 51 (ENH-12) — same "load full list once, populate two <select>s" pattern.
+function loadLoansForLink() {
+    fetch(`/api/loans/list?user_id=${currentUserId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                allLoans = data.loans;
+                populateLoanSelects();
+            }
+        });
+}
+
+function populateLoanSelects() {
+    ['addRLoan', 'editRLoan'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        sel.innerHTML = '<option value="">No loan</option>' +
+            allLoans.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+    });
+}
+
+function toggleTransferFields(prefix) {
+    const type = document.getElementById(prefix + 'RType').value;
+    const toGroup = document.getElementById(prefix + 'ToAccountGroup');
+    const catGroup = document.getElementById(prefix + 'CategoryGroup');
+    if (type === 'transfer') {
+        toGroup.style.display = 'block';
+        catGroup.style.display = 'none';
+    } else {
+        toGroup.style.display = 'none';
+        catGroup.style.display = 'block';
+    }
+}
+
+function loadRecurring() {
+    fetch(`/api/recurring/list?user_id=${currentUserId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) return;
+            const all = data.recurring;
+            renderList('allRecurringList', all);
+            renderList('activeRecurringList', all.filter(r => r.is_active));
+            renderList('pausedRecurringList', all.filter(r => !r.is_active));
+        });
+}
+
+function renderList(containerId, items) {
+    const container = document.getElementById(containerId);
+    if (!items.length) {
+        container.innerHTML = '<div class="text-center py-4" style="color:var(--th);">No recurring transactions found.</div>';
+        return;
+    }
+    container.innerHTML = `
+        <div style="overflow-x:auto;">
+        <table class="glass-table">
+            <thead><tr>
+                <th>Description</th><th>Type</th><th>Amount</th>
+                <th>Frequency</th><th>Next Run</th><th>Status</th><th>Actions</th>
+            </tr></thead>
+            <tbody>
+                ${items.map(r => `
+                <tr>
+                    <td>${r.description || '-'}</td>
+                    <td><span class="glass-badge ${r.type==='income'?'badge-income':r.type==='expense'?'badge-expense':''}">${r.type}</span></td>
+                    <td>${formatMoney(parseFloat(r.amount), r.currency)}</td>
+                    <td>${r.frequency}</td>
+                    <td>${r.next_run_date || '-'}</td>
+                    <td><span class="glass-badge ${r.is_active?'badge-income':''}">${r.is_active?'Active':'Paused'}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-secondary" onclick="openEditRecurring(${r.id})">Edit</button>
+                        <button class="btn btn-sm btn-secondary" onclick="toggleRecurring(${r.id}, ${!r.is_active})">${r.is_active?'Pause':'Resume'}</button>
+                        <button class="btn btn-sm btn-secondary" onclick="deleteRecurring(${r.id})">Delete</button>
+                    </td>
+                </tr>`).join('')}
+            </tbody>
+        </table>
+        </div>`;
+}
+
+function saveRecurring() {
+    const form = document.getElementById('addRecurringForm');
+    const fd = new FormData(form);
+    const isTemplate = document.getElementById('saveAsTemplate').checked;
+    const data = {
+        user_id: fd.get('user_id'),
+        account_id: fd.get('account_id'),
+        to_account_id: fd.get('to_account_id') || null,
+        category_id: fd.get('category_id') || null,
+        loan_id: fd.get('loan_id') || null,
+        type: fd.get('type'),
+        amount: fd.get('amount'),
+        description: fd.get('description'),
+        frequency: fd.get('frequency'),
+        start_date: fd.get('start_date'),
+        end_date: fd.get('end_date') || null,
+        is_template: isTemplate
+    };
+    fetch('/api/recurring/create', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)})
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const label = isTemplate ? 'Template Saved!' : 'Created!';
+                Swal.fire({icon:'success', title:label, timer:1500, showConfirmButton:false});
+                bootstrap.Modal.getInstance(document.getElementById('addRecurringModal')).hide();
+                form.reset();
+                document.getElementById('saveAsTemplate').checked = false;
+                if (isTemplate) { loadTemplates(); } else { loadRecurring(); }
+            } else {
+                Swal.fire({icon:'error', title:'Error', text:data.message});
+            }
+        });
+}
+
+function loadTemplates() {
+    fetch(`/api/recurring/templates?user_id=${currentUserId}`)
+        .then(r => r.json())
+        .then(data => {
+            const container = document.getElementById('templatesList');
+            if (!data.success || !data.templates.length) {
+                container.innerHTML = '<div class="text-center py-4" style="color:var(--th);">No templates saved yet. Use "Save as Template" when adding a recurring transaction.</div>';
+                return;
+            }
+            container.innerHTML = `
+                <div style="overflow-x:auto;">
+                <table class="glass-table">
+                    <thead><tr>
+                        <th>Description</th><th>Type</th><th>Amount</th><th>Frequency</th><th>Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        ${data.templates.map(t => `
+                        <tr>
+                            <td>${t.description || '-'}</td>
+                            <td><span class="glass-badge ${t.type==='income'?'badge-income':t.type==='expense'?'badge-expense':''}">${t.type}</span></td>
+                            <td>${formatMoney(parseFloat(t.amount), t.currency)}</td>
+                            <td>${t.frequency}</td>
+                            <td>
+                                <button class="btn btn-sm btn-secondary" onclick="openUseTemplate(${t.id}, '${(t.description||'Template').replace(/'/g,"\\'")}')">Use</button>
+                                <button class="btn btn-sm btn-secondary" onclick="deleteRecurring(${t.id})">Delete</button>
+                            </td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+                </div>`;
+        });
+}
+
+function openUseTemplate(templateId, name) {
+    document.getElementById('useTemplateId').value = templateId;
+    document.getElementById('templateModalName').textContent = name;
+    document.getElementById('useTemplateEnd').value = '';
+    new bootstrap.Modal(document.getElementById('useTemplateModal')).show();
+}
+
+function activateTemplate() {
+    const templateId = document.getElementById('useTemplateId').value;
+    const userId = document.getElementById('useTemplateUserId').value;
+    const startDate = document.getElementById('useTemplateStart').value;
+    const endDate = document.getElementById('useTemplateEnd').value || null;
+
+    fetch(`/api/recurring/from-template/${templateId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: userId, start_date: startDate, end_date: endDate})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({icon:'success', title:'Activated!', text:'Recurring transaction created from template.', timer:1800, showConfirmButton:false});
+            bootstrap.Modal.getInstance(document.getElementById('useTemplateModal')).hide();
+            loadRecurring();
+        } else {
+            Swal.fire({icon:'error', title:'Error', text:data.message});
+        }
+    });
+}
+
+function openEditRecurring(rtId) {
+    fetch(`/api/recurring/${rtId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const r = data.recurring;
+                document.getElementById('editRtId').value = r.id;
+                document.getElementById('editRType').value = r.type;
+                document.getElementById('editRAmount').value = r.amount;
+                document.getElementById('editRDesc').value = r.description || '';
+                document.getElementById('editRFreq').value = r.frequency;
+                document.getElementById('editRStart').value = r.start_date || '';
+                document.getElementById('editREnd').value = r.end_date || '';
+                toggleTransferFields('edit');
+                if (r.account_id) document.getElementById('editRAccount').value = r.account_id;
+                if (r.to_account_id) document.getElementById('editRToAccount').value = r.to_account_id;
+                const editCategory = r.category_id ? allCategories.find(c => c.id === r.category_id) : null;
+                document.getElementById('editRCategory').value = editCategory ? editCategory.id : '';
+                document.getElementById('editRCategorySearchInput').value = editCategory ? categoryOptionLabel(editCategory) : '';
+                document.getElementById('editRLoan').value = r.loan_id || '';
+                new bootstrap.Modal(document.getElementById('editRecurringModal')).show();
+            }
+        });
+}
+
+function updateRecurring() {
+    const form = document.getElementById('editRecurringForm');
+    const fd = new FormData(form);
+    const rtId = fd.get('rt_id');
+    const data = {
+        user_id: fd.get('user_id'),
+        account_id: fd.get('account_id'),
+        to_account_id: fd.get('to_account_id') || null,
+        category_id: fd.get('category_id') || null,
+        loan_id: fd.get('loan_id') || null,
+        type: fd.get('type'),
+        amount: fd.get('amount'),
+        description: fd.get('description'),
+        frequency: fd.get('frequency'),
+        start_date: fd.get('start_date'),
+        end_date: fd.get('end_date') || null
+    };
+    fetch(`/api/recurring/${rtId}/update`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)})
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({icon:'success', title:'Updated!', timer:1500, showConfirmButton:false});
+                bootstrap.Modal.getInstance(document.getElementById('editRecurringModal')).hide();
+                loadRecurring();
+            } else {
+                Swal.fire({icon:'error', title:'Error', text:data.message});
+            }
+        });
+}
+
+function toggleRecurring(rtId, isActive) {
+    fetch(`/api/recurring/${rtId}/toggle`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({is_active: isActive})
+    }).then(r => r.json()).then(data => {
+        if (data.success) loadRecurring();
+    });
+}
+
+function deleteRecurring(rtId) {
+    Swal.fire({title:'Delete?', text:'Delete this recurring rule? Generated transactions are kept.',
+        icon:'warning', showCancelButton:true, confirmButtonColor:'#dc3545', confirmButtonText:'Delete'
+    }).then(result => {
+        if (result.isConfirmed) {
+            fetch(`/api/recurring/${rtId}/delete`, {method:'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) { Swal.fire({icon:'success', title:'Deleted!', timer:1500, showConfirmButton:false}); loadRecurring(); }
+                    else { Swal.fire({icon:'error', title:'Error', text:data.message}); }
+                });
+        }
+    });
+}
+
+function triggerGeneration() {
+    Swal.fire({title:'Running...', text:'Generating due recurring transactions', didOpen:()=>Swal.showLoading(), allowOutsideClick:false});
+    fetch('/api/recurring/trigger', {method:'POST'})
+        .then(r => r.json())
+        .then(data => {
+            Swal.fire({icon:'success', title:'Done!', text:data.message});
+            loadRecurring();
+        })
+        .catch(() => Swal.fire({icon:'error', title:'Error', text:'Trigger failed'}));
+}
+</script>
+{% endblock %}

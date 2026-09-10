@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}500 - Internal Server Error - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-center align-items-center" style="min-height:70vh;">
+    <div style="width:100%;max-width:600px;text-align:center;">
+        <div class="glass-card no-hover">
+            <div style="padding:48px 40px;">
+                <h1 style="font-size:5rem;font-weight:700;color:var(--dn);line-height:1;margin-bottom:8px;">500</h1>
+                <h2 style="color:var(--tp);margin-bottom:16px;">Internal Server Error</h2>
+                <p style="color:var(--ts);font-size:1rem;margin-bottom:28px;">
+                    Something went wrong on our end.
+                </p>
+
+                <!-- VULNERABILITY: Stack trace exposure -->
+                <div class="alert alert-danger text-start" role="alert">
+                    <h5 class="alert-heading">Debug Information (SHOULD NOT BE VISIBLE!)</h5>
+                    <hr>
+                    <p class="mb-0 font-monospace">
+                        <strong>Error Type:</strong> {{ error.__class__.__name__ if error else 'Unknown Error' }}<br>
+                        <strong>Error Message:</strong> {{ error if error else 'Internal Server Error' }}<br>
+                        <strong>Request URL:</strong> {{ request.url if request else 'N/A' }}<br>
+                        <strong>Request Method:</strong> {{ request.method if request else 'N/A' }}
+                    </p>
+                </div>
+
+                <div class="alert alert-warning text-start" role="alert">
+                    <small>Hint: Stack traces and debug info should never be visible in production!</small>
+                </div>
+
+                <div class="d-flex gap-3 justify-content-center mt-4">
+                    <a href="{{ url_for('main.index') }}" class="btn btn-secondary btn-lg">
+                        Go Home
+                    </a>
+                    <a href="javascript:history.back()" class="btn btn-secondary btn-lg">
+                        Go Back
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

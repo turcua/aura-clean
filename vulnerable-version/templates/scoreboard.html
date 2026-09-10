@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="abyss">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ app_name }} — Scoreboard</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/glass.css') }}">
+
+    <style>
+        /* Light hacker-persona reskin, scoped to this page only — a darker,
+           terminal-leaning palette layered on top of the existing Liquid
+           Glass tokens rather than a from-scratch design system. */
+        :root {
+            --ac: #22d97a;
+            --ag: rgba(34, 217, 122, 0.30);
+            --as: rgba(34, 217, 122, 0.12);
+        }
+        body {
+            font-family: 'SF Mono', 'Fira Code', ui-monospace, Menlo, Consolas, monospace;
+            /* glass.css sets body{overflow:hidden} because the normal app
+               layout scrolls inside .main-content instead — this page is
+               standalone (no base.html, no .main-content), so without this
+               override nothing past one viewport height is reachable. */
+            overflow-y: auto;
+            display: block;
+        }
+        .scoreboard-shell {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 48px 20px 80px;
+        }
+        .scoreboard-header {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .scoreboard-header .prompt {
+            color: var(--ac);
+            font-size: 0.9rem;
+            letter-spacing: 0.04em;
+        }
+        .scoreboard-header h1 {
+            font-size: 2rem;
+            margin: 8px 0 4px;
+            color: var(--tp);
+        }
+        .scoreboard-header p {
+            color: var(--ts);
+            font-size: 0.9rem;
+        }
+        .scoreboard-progress {
+            text-align: center;
+            margin: 24px 0 40px;
+            color: var(--ac);
+            font-size: 1rem;
+        }
+        .scoreboard-progress span {
+            color: var(--tp);
+        }
+        .scoreboard-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            margin-bottom: 32px;
+        }
+        .scoreboard-tab {
+            background: transparent;
+            border: 1px solid var(--rim);
+            border-radius: 999px;
+            color: var(--ts);
+            font-family: inherit;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            padding: 6px 14px;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+        }
+        .scoreboard-tab:hover {
+            color: var(--tp);
+            border-color: var(--th);
+        }
+        .scoreboard-tab.is-active {
+            color: var(--ac);
+            border-color: var(--ac);
+            background: var(--as);
+        }
+        .scoreboard-tab .tab-count {
+            opacity: 0.75;
+            margin-left: 4px;
+        }
+        .category-block {
+            margin-bottom: 32px;
+            display: none;
+        }
+        .category-block.is-active {
+            display: block;
+        }
+        .category-heading {
+            color: var(--ac);
+            font-size: 1.05rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--rim);
+            padding-bottom: 6px;
+        }
+        .challenge-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 14px 16px;
+        }
+        .challenge-row + .challenge-row {
+            border-top: 1px solid var(--rim);
+        }
+        .challenge-check {
+            margin-top: 3px;
+            width: 18px;
+            height: 18px;
+            accent-color: var(--ac);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .challenge-row.is-found .challenge-name {
+            color: var(--ac);
+        }
+        .challenge-row.is-found .challenge-id {
+            opacity: 0.6;
+        }
+        .challenge-body { flex: 1; }
+        .challenge-id {
+            color: var(--th);
+            font-size: 0.75rem;
+        }
+        .challenge-name {
+            color: var(--tp);
+            font-weight: 600;
+        }
+        .challenge-hint {
+            color: var(--ts);
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+        .sev-badge {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--rim);
+            flex-shrink: 0;
+        }
+        .sev-critical { color: var(--dn); border-color: var(--dn); }
+        .sev-high     { color: #fb923c; border-color: #fb923c; }
+        .sev-medium   { color: #facc15; border-color: #facc15; }
+        .sev-low      { color: var(--ts); }
+        .fixed-badge {
+            font-size: 0.7rem;
+            color: var(--th);
+            border: 1px solid var(--rim);
+            border-radius: 999px;
+            padding: 2px 8px;
+            flex-shrink: 0;
+        }
+        .challenge-row.is-fixed { opacity: 0.5; }
+        .proven-badge {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--ac);
+            border: 1px solid var(--ag);
+            background: var(--as);
+            border-radius: 999px;
+            padding: 2px 8px;
+            flex-shrink: 0;
+            margin-left: 6px;
+        }
+        .proven-flag {
+            font-size: 0.75rem;
+            color: var(--ac);
+            margin-top: 4px;
+            word-break: break-all;
+        }
+        .scoreboard-auth-banner {
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--ts);
+            border: 1px dashed var(--rim);
+            border-radius: 12px;
+            padding: 10px 16px;
+            margin-bottom: 24px;
+        }
+        .scoreboard-auth-banner a {
+            color: var(--ac);
+        }
+        .leaderboard-section {
+            border: 1px solid var(--rim);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 32px;
+        }
+        .leaderboard-title {
+            color: var(--ac);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 10px;
+        }
+        .leaderboard-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 0;
+            font-size: 0.85rem;
+        }
+        .leaderboard-row + .leaderboard-row {
+            border-top: 1px solid var(--rim);
+        }
+        .leaderboard-rank {
+            color: var(--th);
+            width: 32px;
+            flex-shrink: 0;
+        }
+        .leaderboard-name {
+            color: var(--tp);
+            flex: 1;
+        }
+        .leaderboard-count {
+            color: var(--ac);
+            font-weight: 600;
+        }
+        .leaderboard-empty {
+            color: var(--ts);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="scoreboard-shell">
+        <div class="scoreboard-header">
+            <div class="prompt">// unauthenticated access — you found this on your own</div>
+            <h1>Aura Scoreboard</h1>
+            <p>{{ total_active }} live challenges. Each one is a real, exploitable vulnerability in this app right now.</p>
+        </div>
+
+        {% if session.user_id %}
+        <div class="scoreboard-auth-banner">
+            <!-- VULNERABILITY: XSS - Username not sanitized (same pattern as VULN-009) -->
+            Logged in as {{ session.username|safe }} — your progress is saved to your account.
+        </div>
+        {% else %}
+        <div class="scoreboard-auth-banner">
+            Marking things found right now only lives in this browser. <a href="{{ url_for('auth.login') }}">Log in</a> to save your progress to your account and appear on the leaderboard.
+        </div>
+        {% endif %}
+
+        <div class="scoreboard-progress">
+            <span id="foundCount">0</span> / {{ total_active }} found
+        </div>
+
+        <div class="leaderboard-section">
+            <div class="leaderboard-title">Leaderboard</div>
+            <div id="leaderboardList">
+                <div class="leaderboard-empty">Loading…</div>
+            </div>
+        </div>
+
+        <div class="scoreboard-tabs" id="scoreboardTabs">
+            {% for group in grouped_challenges %}
+            <button type="button" class="scoreboard-tab {% if loop.first %}is-active{% endif %}" data-tab-target="{{ group.category }}">
+                {{ group.category }}
+                <span class="tab-count" data-category-count="{{ group.category }}"></span>
+            </button>
+            {% endfor %}
+        </div>
+
+        {% for group in grouped_challenges %}
+        <div class="category-block {% if loop.first %}is-active{% endif %}" data-category="{{ group.category }}">
+            <div class="category-heading">{{ group.category }}</div>
+            {% for c in group.challenges %}
+            <div class="challenge-row {% if c.status == 'fixed' %}is-fixed{% endif %}" data-vuln-id="{{ c.vuln_id }}" data-status="{{ c.status }}">
+                {% if c.status == 'active' %}
+                <input type="checkbox" class="challenge-check" data-vuln-id="{{ c.vuln_id }}" aria-label="Mark {{ c.vuln_id }} as found">
+                {% else %}
+                <input type="checkbox" class="challenge-check" disabled aria-label="Patched, not a live challenge">
+                {% endif %}
+                <div class="challenge-body">
+                    <div class="challenge-id">{{ c.vuln_id }}</div>
+                    <div class="challenge-name">{{ c.name }}</div>
+                    <div class="challenge-hint">{{ c.hint }}</div>
+                </div>
+                {% if c.status == 'fixed' %}
+                <span class="fixed-badge">patched</span>
+                {% else %}
+                <span class="sev-badge sev-{{ c.severity }}">{{ c.severity }}</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if session.user_id %}
+    <script>window.CURRENT_USER_ID = {{ session.user_id }};</script>
+    {% endif %}
+    <script src="{{ url_for('static', filename='js/scoreboard.js') }}"></script>
+</body>
+</html>

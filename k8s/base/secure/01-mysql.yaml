@@ -1,0 +1,110 @@
+# MySQL for secure-version — Secret, PVC, Deployment, Service
+#
+# The schema init ConfigMap (mysql-secure-init) is NOT defined here — it's
+# generated directly from database/init-secure*.sql via `kubectl create
+# configmap --from-file=...` (see k8s/README.md). Embedding hundreds of lines
+# of SQL as static YAML would duplicate database/ and go stale the moment a
+# new sprint adds a migration file.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secure-credentials
+  namespace: aura-secure
+type: Opaque
+stringData:
+  # Same values as docker-compose.yml's mysql-secure service. In a real
+  # deployment these would come from a secrets manager (Vault, External
+  # Secrets Operator, sealed-secrets) — not committed to git in cleartext.
+  MYSQL_ROOT_PASSWORD: SecureRootPass123!
+  MYSQL_USER: aura_user
+  MYSQL_PASSWORD: SecureUserPass123!
+  MYSQL_DATABASE: aura_secure
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-secure-data
+  namespace: aura-secure
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-secure
+  namespace: aura-secure
+  labels:
+    app: mysql-secure
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # single ReadWriteOnce volume — never run two MySQL pods against it
+  selector:
+    matchLabels:
+      app: mysql-secure
+  template:
+    metadata:
+      labels:
+        app: mysql-secure
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          envFrom:
+            - secretRef:
+                name: mysql-secure-credentials
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          startupProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p$(MYSQL_ROOT_PASSWORD)"]
+            periodSeconds: 5
+            failureThreshold: 60 # up to 5 minutes for first-time init before liveness/readiness kick in
+          livenessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p$(MYSQL_ROOT_PASSWORD)"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p$(MYSQL_ROOT_PASSWORD)"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mysql-secure-data
+        - name: init-scripts
+          configMap:
+            name: mysql-secure-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-secure
+  namespace: aura-secure
+spec:
+  selector:
+    app: mysql-secure
+  ports:
+    - port: 3306
+      targetPort: 3306

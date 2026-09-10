@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+{% block title %}Savings Goals - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 page-header">
+    <h1 class="page-title mb-0">Savings Goals</h1>
+    <button class="btn-glass btn-glass-secondary" data-bs-toggle="modal" data-bs-target="#addGoalModal">
+        New Goal
+    </button>
+</div>
+
+<div class="glass-grid glass-grid-3" id="goalsList">
+    <div style="grid-column:1/-1;text-align:center;padding:40px 0;">
+        <div class="glass-spinner mx-auto mb-2"></div>
+        <p style="color:var(--th);">Loading goals...</p>
+    </div>
+</div>
+
+<!-- ADD GOAL MODAL -->
+<div class="modal fade" id="addGoalModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">New Savings Goal</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addGoalForm">
+                    <input type="hidden" name="user_id" value="{{ session.user_id }}">
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Goal Name</label>
+                        <input type="text" class="glass-input" name="name" placeholder="e.g., Emergency Fund" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Target Amount (RON)</label>
+                                <input type="number" class="glass-input" name="target_amount" id="addTargetAmount"
+                                       step="0.01" min="0.01" required oninput="recalcTimeline('add')">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Current Saved (RON)</label>
+                                <input type="number" class="glass-input" name="current_amount"
+                                       step="0.01" min="0" value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dual-Mode Timeline Calculator -->
+                    <div class="glass-card no-hover mb-3">
+                        <div class="glass-card-header">
+                            <span class="glass-card-title">Timeline Calculator — pick one mode:</span>
+                        </div>
+                        <div style="padding:16px 20px;">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group-glass">
+                                        <label class="form-label-glass fw-bold">Mode A: Set Deadline</label>
+                                        <input type="date" class="glass-input" name="target_date" id="addTargetDate"
+                                               oninput="calcFromDeadline('add')">
+                                        <div id="addModeAResult" style="color:var(--ac);font-size:0.82rem;margin-top:4px;"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group-glass">
+                                        <label class="form-label-glass fw-bold">Mode B: Set Monthly Amount</label>
+                                        <input type="number" class="glass-input" name="monthly_target" id="addMonthlyTarget"
+                                               step="0.01" min="0" placeholder="$0.00" oninput="calcFromMonthly('add')">
+                                        <div id="addModeBResult" style="color:var(--ac);font-size:0.82rem;margin-top:4px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Linked Account (optional)</label>
+                        <select class="glass-select" name="account_id" id="addGoalAccount">
+                            <option value="">-- No linked account --</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="saveGoalBtn">Save Goal</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT GOAL MODAL -->
+<div class="modal fade" id="editGoalModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Goal</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editGoalForm">
+                    <input type="hidden" name="goal_id" id="editGoalId">
+                    <input type="hidden" name="user_id" value="{{ session.user_id }}">
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Goal Name</label>
+                        <input type="text" class="glass-input" name="name" id="editGoalName" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Target Amount</label>
+                                <input type="number" class="glass-input" name="target_amount" id="editTargetAmount" step="0.01">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Current Amount</label>
+                                <input type="number" class="glass-input" name="current_amount" id="editCurrentAmount" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Target Date</label>
+                                <input type="date" class="glass-input" name="target_date" id="editTargetDate">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Monthly Target</label>
+                                <input type="number" class="glass-input" name="monthly_target" id="editMonthlyTarget" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Linked Account</label>
+                                <select class="glass-select" name="account_id" id="editGoalAccount">
+                                    <option value="">-- None --</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group-glass">
+                                <label class="form-label-glass">Status</label>
+                                <select class="glass-select" name="status" id="editGoalStatus">
+                                    <option value="active">Active</option>
+                                    <option value="achieved">Achieved</option>
+                                    <option value="paused">Paused</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="updateGoalBtn">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ADD PROGRESS MODAL -->
+<div class="modal fade" id="progressModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Progress</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="progressGoalId">
+                <div class="form-group-glass">
+                    <label class="form-label-glass">Amount to Add (RON)</label>
+                    <input type="number" class="glass-input" id="progressAmount" step="0.01" min="0.01">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="saveProgressBtn">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const currentUserId = {{ session.user_id }};
+let accountsMap = {};
+
+function getAccountName(accountId) {
+    return accountsMap[accountId] || `Account #${accountId}`;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadAccounts(loadGoals);
+    document.getElementById('saveGoalBtn').addEventListener('click', saveGoal);
+    document.getElementById('updateGoalBtn').addEventListener('click', updateGoal);
+    document.getElementById('saveProgressBtn').addEventListener('click', saveProgress);
+});
+
+function loadAccounts(callback) {
+    fetch(`/api/accounts/list?user_id=${currentUserId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                data.accounts.forEach(a => { accountsMap[a.id] = a.name; });
+                const opts = data.accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+                ['addGoalAccount','editGoalAccount'].forEach(id => {
+                    const sel = document.getElementById(id);
+                    if (sel) sel.innerHTML = '<option value="">-- None --</option>' + opts;
+                });
+            }
+            if (callback) callback();
+        });
+}
+
+function loadGoals() {
+    fetch(`/api/goals/list?user_id=${currentUserId}`)
+        .then(r => r.json())
+        .then(data => {
+            const container = document.getElementById('goalsList');
+            if (!data.success || data.goals.length === 0) {
+                container.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--th);padding:40px 0;"><p>No savings goals yet. Set your first goal!</p></div>';
+                return;
+            }
+            container.innerHTML = '';
+            data.goals.forEach(g => container.appendChild(buildGoalCard(g)));
+        });
+}
+
+function buildGoalCard(g) {
+    const card = document.createElement('div');
+    card.className = 'glass-card';
+    card.style.cssText = 'display:flex;flex-direction:column;';
+    const pct = g.progress_percent;
+    const barClass = pct >= 90 ? 'bg-warning' : '';
+    const statusBadge = g.status === 'achieved' ? 'glass-badge badge-income' : 'glass-badge';
+
+    card.innerHTML = `
+        <div class="glass-card-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="glass-card-title">${g.name}</span>
+            <span class="${statusBadge}">${g.status}</span>
+        </div>
+        <div style="padding:16px 20px;flex:1;">
+            <div class="text-center mb-3">
+                <h2 class="stat-value">${pct}%</h2>
+                <small style="color:var(--ts);">${formatMoney(g.current_amount||0, 'RON')} of ${formatMoney(g.target_amount||0, 'RON')}</small>
+            </div>
+            <div class="progress mb-3" style="height:12px;">
+                <div class="progress-bar ${barClass}" style="width:${pct}%"></div>
+            </div>
+            <p style="color:var(--ts);font-size:0.85rem;">Remaining: ${formatMoney(g.remaining_amount||0, 'RON')}</p>
+            ${g.target_date ? `<p style="color:var(--ts);font-size:0.85rem;">Target Date: ${g.target_date}</p>` : ''}
+            ${g.monthly_target ? `<p style="color:var(--ts);font-size:0.85rem;">Monthly: ${formatMoney(parseFloat(g.monthly_target), 'RON')}</p>` : ''}
+            ${g.account_id ? `<p style="color:var(--ts);font-size:0.85rem;">Linked: ${getAccountName(g.account_id)}</p>` : ''}
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid var(--gb);display:flex;gap:4px;margin-top:auto;">
+            <button class="btn btn-sm btn-secondary flex-fill" onclick="openProgress(${g.id})">Add</button>
+            <button class="btn btn-sm btn-secondary flex-fill" onclick="openEditGoal(${g.id})">Edit</button>
+            <button class="btn btn-sm btn-secondary flex-fill" onclick="deleteGoal(${g.id}, '${g.name}')">Delete</button>
+        </div>`;
+    return card;
+}
+
+function calcFromDeadline(prefix) {
+    const target = parseFloat(document.getElementById(prefix+'TargetAmount').value) || 0;
+    const currentEl = document.querySelector(`#${prefix}GoalForm [name=current_amount]`);
+    const current = parseFloat(currentEl ? currentEl.value : 0) || 0;
+    const dateVal = document.getElementById(prefix+'TargetDate').value;
+    const result = document.getElementById(prefix+'ModeAResult');
+    if (!dateVal || !target) { result.textContent = ''; return; }
+    const months = monthsBetween(new Date(), new Date(dateVal));
+    if (months <= 0) { result.textContent = 'Date must be in the future.'; return; }
+    const monthly = (target - current) / months;
+    result.textContent = `→ Save ${formatMoney(monthly, 'RON')}/month`;
+    document.getElementById(prefix+'MonthlyTarget').value = '';
+    document.getElementById(prefix+'ModeBResult').textContent = '';
+}
+
+function calcFromMonthly(prefix) {
+    const target = parseFloat(document.getElementById(prefix+'TargetAmount').value) || 0;
+    const currentEl = document.querySelector(`#${prefix}GoalForm [name=current_amount]`);
+    const current = parseFloat(currentEl ? currentEl.value : 0) || 0;
+    const monthly = parseFloat(document.getElementById(prefix+'MonthlyTarget').value) || 0;
+    const result = document.getElementById(prefix+'ModeBResult');
+    if (!monthly || !target) { result.textContent = ''; return; }
+    const months = Math.ceil((target - current) / monthly);
+    const finish = new Date();
+    finish.setMonth(finish.getMonth() + months);
+    result.textContent = `→ Done by ${finish.toLocaleDateString('en-US', {year:'numeric',month:'long'})}`;
+    document.getElementById(prefix+'TargetDate').value = '';
+    document.getElementById(prefix+'ModeAResult').textContent = '';
+}
+
+function recalcTimeline(prefix) {
+    const dateVal = document.getElementById(prefix+'TargetDate')?.value;
+    const monthly = document.getElementById(prefix+'MonthlyTarget')?.value;
+    if (dateVal) calcFromDeadline(prefix);
+    else if (monthly) calcFromMonthly(prefix);
+}
+
+function monthsBetween(d1, d2) {
+    return (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+}
+
+function saveGoal() {
+    const form = document.getElementById('addGoalForm');
+    const fd = new FormData(form);
+    const data = {
+        user_id: fd.get('user_id'),
+        account_id: fd.get('account_id') || null,
+        name: fd.get('name'),
+        target_amount: fd.get('target_amount'),
+        current_amount: fd.get('current_amount') || 0,
+        target_date: fd.get('target_date') || null,
+        monthly_target: fd.get('monthly_target') || null
+    };
+    fetch('/api/goals/create', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)})
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({icon:'success', title:'Goal Created!', timer:1500, showConfirmButton:false});
+                bootstrap.Modal.getInstance(document.getElementById('addGoalModal')).hide();
+                form.reset();
+                loadGoals();
+            } else {
+                Swal.fire({icon:'error', title:'Error', text:data.message});
+            }
+        });
+}
+
+function openEditGoal(goalId) {
+    fetch(`/api/goals/${goalId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const g = data.goal;
+                document.getElementById('editGoalId').value = g.id;
+                document.getElementById('editGoalName').value = g.name;
+                document.getElementById('editTargetAmount').value = g.target_amount;
+                document.getElementById('editCurrentAmount').value = g.current_amount;
+                document.getElementById('editTargetDate').value = g.target_date || '';
+                document.getElementById('editMonthlyTarget').value = g.monthly_target || '';
+                document.getElementById('editGoalStatus').value = g.status;
+                if (g.account_id) document.getElementById('editGoalAccount').value = g.account_id;
+                new bootstrap.Modal(document.getElementById('editGoalModal')).show();
+            }
+        });
+}
+
+function updateGoal() {
+    const form = document.getElementById('editGoalForm');
+    const fd = new FormData(form);
+    const goalId = fd.get('goal_id');
+    const data = {
+        user_id: fd.get('user_id'),
+        account_id: fd.get('account_id') || null,
+        name: fd.get('name'),
+        target_amount: fd.get('target_amount'),
+        current_amount: fd.get('current_amount'),
+        target_date: fd.get('target_date') || null,
+        monthly_target: fd.get('monthly_target') || null,
+        status: fd.get('status')
+    };
+    fetch(`/api/goals/${goalId}/update`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)})
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({icon:'success', title:'Updated!', timer:1500, showConfirmButton:false});
+                bootstrap.Modal.getInstance(document.getElementById('editGoalModal')).hide();
+                loadGoals();
+            } else {
+                Swal.fire({icon:'error', title:'Error', text:data.message});
+            }
+        });
+}
+
+function openProgress(goalId) {
+    document.getElementById('progressGoalId').value = goalId;
+    document.getElementById('progressAmount').value = '';
+    new bootstrap.Modal(document.getElementById('progressModal')).show();
+}
+
+function saveProgress() {
+    const goalId = document.getElementById('progressGoalId').value;
+    const amount = document.getElementById('progressAmount').value;
+    fetch(`/api/goals/${goalId}/progress`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({amount})
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            Swal.fire({icon:'success', title:'Progress Added!', timer:1500, showConfirmButton:false});
+            bootstrap.Modal.getInstance(document.getElementById('progressModal')).hide();
+            loadGoals();
+        } else {
+            Swal.fire({icon:'error', title:'Error', text:data.message});
+        }
+    });
+}
+
+function deleteGoal(goalId, name) {
+    Swal.fire({title:'Delete Goal?', text:`Delete "${name}"?`, icon:'warning',
+        showCancelButton:true, confirmButtonColor:'#dc3545', confirmButtonText:'Delete'
+    }).then(result => {
+        if (result.isConfirmed) {
+            fetch(`/api/goals/${goalId}/delete`, {method:'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) { Swal.fire({icon:'success', title:'Deleted!', timer:1500, showConfirmButton:false}); loadGoals(); }
+                    else { Swal.fire({icon:'error', title:'Error', text:data.message}); }
+                });
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,9 @@
+{{- if .Values.secure.enabled }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.secure.namespace }}
+  labels:
+    {{- include "aura.labels" . | nindent 4 }}
+    aura/version: secure
+{{- end }}

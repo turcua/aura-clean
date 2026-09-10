@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}404 - Page Not Found - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-6 mx-auto text-center">
+        <div class="glass-card no-hover p-4 p-md-5">
+            <h1 class="display-1" style="color:var(--ac);">404</h1>
+            <h2 class="mb-4">Page Not Found</h2>
+            <p class="lead mb-4" style="color:var(--ts);">
+                Sorry, the page you're looking for doesn't exist or has been moved.
+            </p>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                <a href="{{ url_for('main.index') }}" class="btn-glass btn-glass-primary btn-lg">Go Home</a>
+                <a href="{{ url_for('main.dashboard') }}" class="btn-glass btn-glass-secondary btn-lg">Dashboard</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Register - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 mx-auto">
+        <div class="glass-card no-hover p-4 p-md-5">
+            <h2 class="page-title text-center mb-4" style="font-size:1.4rem;">Create Account</h2>
+
+            <form method="POST" action="{{ url_for('auth.register') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group-glass">
+                    <label for="username" class="form-label-glass">Username</label>
+                    <input type="text" class="glass-input" id="username" name="username"
+                           required minlength="3" maxlength="20"
+                           pattern="[a-zA-Z0-9_]+"
+                           placeholder="Enter username (3-20 characters, alphanumeric)">
+                    <div class="form-text" style="font-size:0.78rem; margin-top:4px;">Only letters, numbers, and underscores allowed.</div>
+                </div>
+
+                <div class="form-group-glass">
+                    <label for="email" class="form-label-glass">Email</label>
+                    <input type="email" class="glass-input" id="email" name="email"
+                           required placeholder="Enter email address">
+                </div>
+
+                <div class="form-group-glass">
+                    <label for="password" class="form-label-glass">Password</label>
+                    <input type="password" class="glass-input" id="password" name="password"
+                           required minlength="8" placeholder="Enter password">
+                    <div class="form-text" style="font-size:0.78rem; margin-top:4px;">
+                        Password must be at least 8 characters and include:
+                        <ul class="small mb-0" style="padding-left: 1.1rem;">
+                            <li>At least one uppercase letter</li>
+                            <li>At least one lowercase letter</li>
+                            <li>At least one digit</li>
+                            <li>At least one special character (!@#$%^&amp;*...)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="form-group-glass">
+                    <label for="confirm_password" class="form-label-glass">Confirm Password</label>
+                    <input type="password" class="glass-input" id="confirm_password" name="confirm_password"
+                           required minlength="8" placeholder="Confirm password">
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn-glass btn-glass-secondary btn-lg">Register</button>
+                </div>
+            </form>
+
+            <div class="glass-divider my-4"></div>
+
+            <p class="text-center mb-0" style="color:var(--ts);">
+                Already have an account? <a href="{{ url_for('auth.login') }}">Login here</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

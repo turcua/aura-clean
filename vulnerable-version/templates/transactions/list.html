@@ -1,0 +1,836 @@
+{% extends "base.html" %}
+
+{% block title %}Transactions - {{ app_name }}{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4 page-header">
+    <h1 class="page-title mb-0">Transactions</h1>
+    <button type="button" class="btn-glass btn-glass-secondary" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
+        Add Transaction
+    </button>
+</div>
+
+<!-- Transactions Table -->
+<div class="glass-card no-hover">
+    <div class="glass-card-header">
+        <span class="glass-card-title">All Transactions</span>
+    </div>
+    <div class="d-flex align-items-end gap-2 flex-wrap" style="padding:0 20px 16px;">
+        <div class="form-group-glass mb-0">
+            <label for="filterDateFrom" class="form-label-glass">From</label>
+            <input type="date" class="glass-input" id="filterDateFrom">
+        </div>
+        <div class="form-group-glass mb-0">
+            <label for="filterDateTo" class="form-label-glass">To</label>
+            <input type="date" class="glass-input" id="filterDateTo">
+        </div>
+        <!-- ENH-05/Sprint 50: category/account/type/transfers filters added
+             alongside the existing date filter. Kept separate from
+             applyDateFilter()'s own dateFilterSummary rendering (VULN-025) —
+             that reflected-XSS behavior is untouched, these new fields don't
+             route through it. -->
+        <div class="form-group-glass mb-0">
+            <label for="filterCategory" class="form-label-glass">Category</label>
+            <select class="glass-select" id="filterCategory">
+                <option value="">All categories</option>
+            </select>
+        </div>
+        <div class="form-group-glass mb-0">
+            <label for="filterAccount" class="form-label-glass">Account</label>
+            <select class="glass-select" id="filterAccount">
+                <option value="">All accounts</option>
+            </select>
+        </div>
+        <div class="form-group-glass mb-0">
+            <label for="filterType" class="form-label-glass">Type</label>
+            <select class="glass-select" id="filterType">
+                <option value="">All types</option>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+            </select>
+        </div>
+        <div class="form-group-glass form-group-glass--static mb-0">
+            <label class="form-label-glass" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="filterIncludeTransfers">
+                Include Transfers
+            </label>
+        </div>
+        <button type="button" class="btn-glass btn-glass-secondary" id="applyDateFilterBtn">Filter</button>
+        <button type="button" class="btn-glass btn-glass-secondary" id="clearFiltersBtn">Clear</button>
+    </div>
+    <div id="dateFilterSummary" style="padding:0 20px 12px;font-size:0.875rem;color:var(--th);"></div>
+    <div class="table-scroll-wrap">
+        <table class="glass-table" id="transactionsTable">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="transactionsList">
+                <tr>
+                    <td colspan="6" style="text-align:center;padding:32px 0;">
+                        <div style="display:flex;align-items:center;justify-content:center;gap:10px;">
+                            <div class="glass-spinner"></div>
+                            <span style="color:var(--th);font-size:0.875rem;">Loading transactions…</span>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="pagination-bar" id="transactionsPagination"></div>
+</div>
+
+<!-- Add/Edit Transaction Modal -->
+<div class="modal fade" id="addTransactionModal" tabindex="-1" aria-labelledby="addTransactionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addTransactionModalLabel">Add New Transaction</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addTransactionForm">
+                    <!-- form-group-glass--static: opts this field out of the Wisteria
+                         floating-label treatment (Sprint 36) — that pattern assumes a
+                         single text-like input to float the label out of the way of;
+                         a radio-button group has no such single target and the label
+                         would just overlap "Income"/"Expense" instead. -->
+                    <div class="form-group-glass form-group-glass--static">
+                        <label class="form-label-glass">Type</label>
+                        <div class="type-toggle" role="radiogroup" aria-label="Transaction type">
+                            <input class="type-toggle-input" type="radio" name="type" id="typeIncome" value="income" checked>
+                            <label class="type-toggle-option" for="typeIncome">Income</label>
+                            <input class="type-toggle-input" type="radio" name="type" id="typeExpense" value="expense">
+                            <label class="type-toggle-option" for="typeExpense">Expense</label>
+                        </div>
+                    </div>
+                    <div class="form-group-glass">
+                        <label for="amount" class="form-label-glass">Amount</label>
+                        <input type="number" class="glass-input" id="amount" name="amount"
+                               step="0.01" placeholder="0.00" required>
+                    </div>
+                    <!-- ENH-10/Sprint 52: searchable combobox, matching secure-version -->
+                    <div class="form-group-glass" style="position:relative;">
+                        <label for="categorySearchInput" class="form-label-glass">Category</label>
+                        <input type="text" class="glass-input" id="categorySearchInput" autocomplete="off" placeholder="Search or select category…">
+                        <input type="hidden" id="category_id" name="category_id" required>
+                        <div id="categorySearchDropdown" class="searchable-select-dropdown" style="display:none;"></div>
+                    </div>
+                    <div class="form-group-glass">
+                        <label for="account_id" class="form-label-glass">Account <span style="color:var(--th);">(optional)</span></label>
+                        <select class="glass-select" id="account_id" name="account_id">
+                            <option value="">No account</option>
+                        </select>
+                    </div>
+                    <div class="form-group-glass">
+                        <label for="loan_id" class="form-label-glass">Link to Loan <span style="color:var(--th);">(optional — marks this as an extra payment)</span></label>
+                        <select class="glass-select" id="loan_id" name="loan_id">
+                            <option value="">No loan</option>
+                        </select>
+                    </div>
+                    <div class="form-group-glass">
+                        <label for="description" class="form-label-glass">Description</label>
+                        <textarea class="glass-textarea" id="description" name="description"
+                                  rows="3" placeholder="Enter transaction details…"></textarea>
+                    </div>
+                    <div class="form-group-glass">
+                        <label for="transaction_date" class="form-label-glass">Date</label>
+                        <input type="date" class="glass-input" id="transaction_date"
+                               name="transaction_date" required>
+                    </div>
+                    <!-- VULNERABILITY: Hidden user_id can be manipulated -->
+                    <input type="hidden" id="user_id" name="user_id" value="{{ session.user_id }}">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveTransactionBtn">Save Transaction</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ============================================================================
+// TRANSACTION LIST PAGE - JAVASCRIPT
+// Sprint 2: Thunder Breathing - Second Form
+// ============================================================================
+
+// Global variables
+let currentUserId = {{ session.user_id }};
+let currentDateFrom = '';
+let currentDateTo = '';
+// ENH-05/Sprint 50: new filter state, separate from the date-filter vars
+// above (those feed VULN-025's reflected-XSS summary and must stay as-is).
+let currentCategoryId = '';
+let currentAccountId = '';
+let currentType = '';
+let currentIncludeTransfers = false;
+
+// ============================================================================
+// PAGE INITIALIZATION
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Transaction page loaded');
+
+    // Set today's date as default
+    document.getElementById('transaction_date').valueAsDate = new Date();
+
+    // Load initial data
+    loadCategories();
+    loadAccounts();
+    loadLoans();
+    loadFilterOptions();
+
+    // VULN-025: Reflected XSS - Filter Parameters. date_from/date_to are read
+    // straight off the query string and rendered into #dateFilterSummary via
+    // innerHTML with no escaping, so a crafted link with a script payload in
+    // date_from executes on load.
+    const params = new URLSearchParams(window.location.search);
+    const qDateFrom = params.get('date_from');
+    const qDateTo = params.get('date_to');
+    if (qDateFrom) document.getElementById('filterDateFrom').value = qDateFrom;
+    if (qDateTo) document.getElementById('filterDateTo').value = qDateTo;
+    if (qDateFrom || qDateTo) {
+        applyDateFilter(qDateFrom, qDateTo);
+    } else {
+        loadTransactions(1);
+    }
+
+    // Event listeners
+    setupEventListeners();
+    setupCategorySearch();
+});
+
+// ============================================================================
+// DATE FILTER (reflects raw query/input values into the page - see VULN-025)
+// ============================================================================
+function applyDateFilter(dateFrom, dateTo) {
+    const summary = document.getElementById('dateFilterSummary');
+    if (dateFrom || dateTo) {
+        summary.innerHTML = `Filtered: ${dateFrom || 'any'} to ${dateTo || 'any'}`;
+    } else {
+        summary.innerHTML = '';
+    }
+    currentDateFrom = dateFrom || '';
+    currentDateTo = dateTo || '';
+    loadTransactions(1);
+}
+
+// ============================================================================
+// EVENT LISTENERS
+// ============================================================================
+function setupEventListeners() {
+    // Save transaction button
+    document.getElementById('saveTransactionBtn').addEventListener('click', saveTransaction);
+
+    // Date filter button — also captures the new (non-XSS-affected) filter
+    // fields before triggering applyDateFilter()'s existing reload/render.
+    document.getElementById('applyDateFilterBtn').addEventListener('click', function() {
+        const from = document.getElementById('filterDateFrom').value;
+        const to = document.getElementById('filterDateTo').value;
+        currentCategoryId = document.getElementById('filterCategory').value;
+        currentAccountId = document.getElementById('filterAccount').value;
+        currentType = document.getElementById('filterType').value;
+        currentIncludeTransfers = document.getElementById('filterIncludeTransfers').checked;
+        applyDateFilter(from, to);
+    });
+
+    document.getElementById('clearFiltersBtn').addEventListener('click', function() {
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
+        document.getElementById('filterCategory').value = '';
+        document.getElementById('filterAccount').value = '';
+        document.getElementById('filterType').value = '';
+        document.getElementById('filterIncludeTransfers').checked = false;
+        currentCategoryId = '';
+        currentAccountId = '';
+        currentType = '';
+        currentIncludeTransfers = false;
+        applyDateFilter('', '');
+    });
+
+    // Type radio buttons - reload categories when type changes
+    document.querySelectorAll('input[name="type"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            loadCategories();
+        });
+    });
+
+    // Reset modal when closed
+    const modal = document.getElementById('addTransactionModal');
+    modal.addEventListener('hidden.bs.modal', function() {
+        resetTransactionModal();
+    });
+}
+
+// ============================================================================
+// CATEGORY SEARCHABLE COMBOBOX (ENH-10/Sprint 52) — replaces a plain
+// <select>, matching secure-version. category_id stays a hidden input with
+// the same name/id, so saveTransaction()/updateTransaction() need no changes.
+// ============================================================================
+let formCategories = [];
+
+function loadCategories() {
+    const type = document.querySelector('input[name="type"]:checked').value;
+    document.getElementById('category_id').value = '';
+    document.getElementById('categorySearchInput').value = '';
+
+    return fetch(`/api/categories/list?user_id=${currentUserId}&type=${type}`)
+        .then(response => response.json())
+        .then(data => {
+            formCategories = data.success ? data.categories : [];
+            if (!data.success) console.error('Failed to load categories:', data.message);
+        })
+        .catch(error => {
+            formCategories = [];
+            console.error('Error fetching categories:', error);
+        });
+}
+
+function renderCategoryDropdown(filterText) {
+    const dropdown = document.getElementById('categorySearchDropdown');
+    const filter = (filterText || '').toLowerCase();
+    const matches = formCategories.filter(c => c.name.toLowerCase().includes(filter));
+
+    if (matches.length === 0) {
+        dropdown.innerHTML = '<div class="searchable-select-empty">No matching categories</div>';
+    } else {
+        dropdown.innerHTML = '';
+        matches.forEach(category => {
+            const opt = document.createElement('div');
+            opt.className = 'searchable-select-option';
+            opt.textContent = category.name;
+            // mousedown (not click) fires before the input's blur handler,
+            // so the selection registers before the dropdown gets hidden.
+            opt.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                document.getElementById('category_id').value = category.id;
+                document.getElementById('categorySearchInput').value = category.name;
+                dropdown.style.display = 'none';
+            });
+            dropdown.appendChild(opt);
+        });
+    }
+    dropdown.style.display = 'block';
+}
+
+function setupCategorySearch() {
+    const input = document.getElementById('categorySearchInput');
+    const dropdown = document.getElementById('categorySearchDropdown');
+
+    input.addEventListener('input', () => {
+        document.getElementById('category_id').value = '';
+        renderCategoryDropdown(input.value);
+    });
+    input.addEventListener('focus', () => renderCategoryDropdown(input.value));
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const firstMatch = dropdown.querySelector('.searchable-select-option');
+            if (firstMatch) firstMatch.dispatchEvent(new Event('mousedown'));
+        } else if (e.key === 'Escape') {
+            dropdown.style.display = 'none';
+        }
+    });
+    input.addEventListener('blur', () => {
+        setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+    });
+}
+
+// ============================================================================
+// LOAD ACCOUNTS (FOR DROPDOWN)
+// ============================================================================
+function loadAccounts() {
+    const accountSelect = document.getElementById('account_id');
+
+    return fetch(`/api/accounts/list?user_id=${currentUserId}`)
+        .then(response => response.json())
+        .then(data => {
+            accountSelect.innerHTML = '<option value="">No account</option>';
+
+            if (data.success) {
+                data.accounts.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.id;
+                    option.textContent = account.name;
+                    accountSelect.appendChild(option);
+                });
+            } else {
+                console.error('Failed to load accounts:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching accounts:', error);
+        });
+}
+
+// ============================================================================
+// LOAD LOANS (FOR DROPDOWN)
+// ============================================================================
+function loadLoans() {
+    const loanSelect = document.getElementById('loan_id');
+
+    return fetch(`/api/loans/list?user_id=${currentUserId}`)
+        .then(response => response.json())
+        .then(data => {
+            loanSelect.innerHTML = '<option value="">No loan</option>';
+
+            if (data.success) {
+                data.loans.forEach(loan => {
+                    const option = document.createElement('option');
+                    option.value = loan.id;
+                    option.textContent = loan.name;
+                    loanSelect.appendChild(option);
+                });
+            } else {
+                console.error('Failed to load loans:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching loans:', error);
+        });
+}
+
+// ============================================================================
+// LOAD FILTER OPTIONS (ENH-05/Sprint 50) — full category/account lists,
+// unscoped by type, separate from the Add Transaction modal's own
+// type-scoped dropdowns (loadCategories()/loadAccounts() above).
+// ============================================================================
+function loadFilterOptions() {
+    fetch(`/api/categories/list?user_id=${currentUserId}`)
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('filterCategory');
+            if (!data.success) return;
+            data.categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category.id;
+                option.textContent = category.name;
+                select.appendChild(option);
+            });
+        })
+        .catch(() => {});
+
+    fetch(`/api/accounts/list?user_id=${currentUserId}`)
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('filterAccount');
+            if (!data.success) return;
+            data.accounts.forEach(account => {
+                const option = document.createElement('option');
+                option.value = account.id;
+                option.textContent = account.name;
+                select.appendChild(option);
+            });
+        })
+        .catch(() => {});
+}
+
+// ============================================================================
+// LOAD TRANSACTIONS (POPULATE TABLE)
+// ============================================================================
+const TRANSACTIONS_PER_PAGE = 25;
+let currentTransactionsPage = 1;
+
+function loadTransactions(page) {
+    currentTransactionsPage = page || currentTransactionsPage;
+    const tbody = document.getElementById('transactionsList');
+
+    // Fetch transactions from API
+    let txUrl = `/api/transactions/list?user_id=${currentUserId}&page=${currentTransactionsPage}&per_page=${TRANSACTIONS_PER_PAGE}`;
+    if (currentDateFrom) txUrl += `&date_from=${currentDateFrom}`;
+    if (currentDateTo) txUrl += `&date_to=${currentDateTo}`;
+    if (currentCategoryId) txUrl += `&category_id=${currentCategoryId}`;
+    if (currentAccountId) txUrl += `&account_id=${currentAccountId}`;
+    if (currentType) txUrl += `&type=${currentType}`;
+    if (currentIncludeTransfers) txUrl += `&include_transfers=1`;
+
+    fetch(txUrl)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.transactions.length === 0) {
+                    // No transactions
+                    const msg = currentTransactionsPage > 1
+                        ? 'No transactions on this page.'
+                        : 'No transactions yet. Click "Add Transaction" to get started!';
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center py-5" style="color:var(--th);">
+                                <p class="mb-0">${msg}</p>
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    // Populate table
+                    tbody.innerHTML = '';
+                    data.transactions.forEach(transaction => {
+                        const row = createTransactionRow(transaction);
+                        tbody.appendChild(row);
+                    });
+                }
+                renderPaginationControls(data);
+            } else {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center" style="color:var(--dn);">
+                            Error loading transactions: ${data.message}
+                        </td>
+                    </tr>
+                `;
+                renderPaginationControls(null);
+            }
+        })
+        .catch(error => {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center" style="color:var(--dn);">
+                        Error loading transactions: ${error.message}
+                    </td>
+                </tr>
+            `;
+            console.error('Error fetching transactions:', error);
+            renderPaginationControls(null);
+        });
+}
+
+function renderPaginationControls(data) {
+    const container = document.getElementById('transactionsPagination');
+    if (!container) return;
+
+    if (!data || !data.total_pages || data.total_pages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = `
+        <button type="button" class="btn-glass btn-glass-secondary" ${data.page <= 1 ? 'disabled' : ''} onclick="loadTransactions(1)">First</button>
+        <button type="button" class="btn-glass btn-glass-secondary" ${data.page <= 1 ? 'disabled' : ''} onclick="loadTransactions(${data.page - 1})">Previous</button>
+        <span class="pagination-info">Page ${data.page} of ${data.total_pages} (${data.total} transaction${data.total !== 1 ? 's' : ''})</span>
+        <button type="button" class="btn-glass btn-glass-secondary" ${data.page >= data.total_pages ? 'disabled' : ''} onclick="loadTransactions(${data.page + 1})">Next</button>
+        <button type="button" class="btn-glass btn-glass-secondary" ${data.page >= data.total_pages ? 'disabled' : ''} onclick="loadTransactions(${data.total_pages})">Last</button>
+        <form class="pagination-jump" onsubmit="return jumpToTransactionsPage(event, ${data.total_pages})">
+            <input type="number" class="glass-input pagination-jump-input" id="transactionsJumpInput" min="1" max="${data.total_pages}" placeholder="Page" aria-label="Jump to page">
+            <button type="submit" class="btn-glass btn-glass-secondary">Go</button>
+        </form>
+    `;
+}
+
+function jumpToTransactionsPage(event, totalPages) {
+    event.preventDefault();
+    const target = parseInt(document.getElementById('transactionsJumpInput').value, 10);
+    if (!isNaN(target) && target >= 1 && target <= totalPages) loadTransactions(target);
+    return false;
+}
+
+// ============================================================================
+// CREATE TRANSACTION ROW (HTML)
+// ============================================================================
+function createTransactionRow(transaction) {
+    const tr = document.createElement('tr');
+
+    // Format amount with currency
+    const amountFormatted = formatMoney(parseFloat(transaction.amount), transaction.currency);
+    const amountDisplay = transaction.type === 'income'
+        ? `<span class="amount-positive">+${amountFormatted}</span>`
+        : `<span class="amount-negative">-${amountFormatted}</span>`;
+
+    // Category display
+    const categoryDisplay = transaction.category_name
+        ? transaction.category_name
+        : '<em style="color:var(--th);">Uncategorized</em>';
+
+    // Type badge — a transfer leg gets its own badge instead of Income/Expense
+    // when Include Transfers is on (ENH-05/Sprint 50).
+    const typeBadge = transaction.is_transfer
+        ? '<span class="glass-badge">Transfer</span>'
+        : (transaction.type === 'income'
+            ? '<span class="glass-badge badge-income">Income</span>'
+            : '<span class="glass-badge badge-expense">Expense</span>');
+
+    tr.innerHTML = `
+        <td>${transaction.transaction_date}</td>
+        <td>${typeBadge}</td>
+        <td>${categoryDisplay}</td>
+        <td>${transaction.description || '<em class="text-muted">No description</em>'}</td>
+        <td><strong>${amountDisplay}</strong></td>
+        <td>
+            <button class="btn btn-sm btn-secondary" onclick="editTransaction(${transaction.id})">Edit</button>
+            <button class="btn btn-sm btn-secondary" onclick="deleteTransaction(${transaction.id})">Delete</button>
+        </td>
+    `;
+
+    return tr;
+}
+
+// ============================================================================
+// SAVE TRANSACTION (CREATE OR UPDATE)
+// ============================================================================
+function saveTransaction() {
+    const form = document.getElementById('addTransactionForm');
+    const formData = new FormData(form);
+
+    // category_id is now a hidden input (ENH-10) — HTML5 `required` doesn't
+    // apply to type="hidden", so this check replaces the native validation
+    // the old <select required> used to give for free.
+    if (!formData.get('category_id')) {
+        Swal.fire({icon: 'error', title: 'Error!', text: 'Please select a category.'});
+        return;
+    }
+
+    // Check if we're editing (has data-editing-id attribute)
+    const saveBtn = document.getElementById('saveTransactionBtn');
+    const editingId = saveBtn.getAttribute('data-editing-id');
+
+    // Convert FormData to JSON
+    const data = {
+        user_id: formData.get('user_id'),
+        category_id: formData.get('category_id'),
+        account_id: formData.get('account_id') || null,
+        loan_id: formData.get('loan_id') || null,
+        type: formData.get('type'),
+        amount: formData.get('amount'),
+        description: formData.get('description'),
+        transaction_date: formData.get('transaction_date')
+    };
+
+    // Disable save button
+    saveBtn.disabled = true;
+    const originalText = saveBtn.textContent;
+    saveBtn.innerHTML = 'Saving...';
+
+    // Determine endpoint and method
+    let url, method;
+    if (editingId) {
+        // UPDATE existing transaction
+        url = `/api/transactions/${editingId}/update`;
+        method = 'POST';
+    } else {
+        // CREATE new transaction
+        url = '/api/transactions/create';
+        method = 'POST';
+    }
+
+    // Send AJAX request
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Success notification
+            const message = editingId ? 'Transaction Updated!' : 'Transaction Created!';
+            Swal.fire({
+                icon: 'success',
+                title: message,
+                text: data.message,
+                timer: 2000,
+                showConfirmButton: false
+            });
+
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addTransactionModal'));
+            modal.hide();
+
+            // Reset form and modal state
+            resetTransactionModal();
+
+            // Reload transactions table
+            loadTransactions();
+        } else {
+            // Error notification
+            Swal.fire({
+                icon: 'error',
+                title: 'Error!',
+                text: data.message
+            });
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error!',
+            text: 'Failed to save transaction: ' + error.message
+        });
+    })
+    .finally(() => {
+        // Re-enable save button
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalText;
+    });
+}
+
+// ============================================================================
+// RESET TRANSACTION MODAL (BACK TO ADD MODE)
+// ============================================================================
+function resetTransactionModal() {
+    const form = document.getElementById('addTransactionForm');
+    const saveBtn = document.getElementById('saveTransactionBtn');
+
+    // Reset form
+    form.reset();
+    document.getElementById('transaction_date').valueAsDate = new Date();
+
+    // Reset modal to "Add" mode
+    document.getElementById('addTransactionModalLabel').textContent = 'Add New Transaction';
+    saveBtn.textContent = 'Save Transaction';
+    saveBtn.removeAttribute('data-editing-id');
+}
+
+// ============================================================================
+// EDIT TRANSACTION (OPEN EDIT MODAL)
+// ============================================================================
+function editTransaction(transactionId) {
+    // Fetch transaction data
+    fetch(`/api/transactions/${transactionId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const transaction = data.transaction;
+
+                // Store transaction ID in a data attribute
+                document.getElementById('saveTransactionBtn').setAttribute('data-editing-id', transactionId);
+
+                // Change modal title and button text
+                document.getElementById('addTransactionModalLabel').textContent = 'Edit Transaction';
+                document.getElementById('saveTransactionBtn').textContent = 'Update Transaction';
+
+                // Populate form with existing data
+                document.getElementById('user_id').value = transaction.user_id;
+                document.getElementById('amount').value = transaction.amount;
+                document.getElementById('description').value = transaction.description || '';
+                document.getElementById('transaction_date').value = transaction.transaction_date;
+
+                // Set type radio button
+                if (transaction.type === 'income') {
+                    document.getElementById('typeIncome').checked = true;
+                } else {
+                    document.getElementById('typeExpense').checked = true;
+                }
+
+                // Load categories for the type, then set the selected category
+                loadCategories().then(() => {
+                    if (transaction.category_id) {
+                        document.getElementById('category_id').value = transaction.category_id;
+                        document.getElementById('categorySearchInput').value = transaction.category_name || '';
+                    }
+                });
+
+                // Load accounts, then set the selected account
+                loadAccounts().then(() => {
+                    document.getElementById('account_id').value = transaction.account_id || '';
+                });
+
+                // Load loans, then set the selected loan
+                loadLoans().then(() => {
+                    document.getElementById('loan_id').value = transaction.loan_id || '';
+                });
+
+                // Open modal
+                const modal = new bootstrap.Modal(document.getElementById('addTransactionModal'));
+                modal.show();
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: 'Failed to load transaction: ' + data.message
+                });
+            }
+        })
+        .catch(error => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error!',
+                text: 'Failed to fetch transaction: ' + error.message
+            });
+        });
+}
+
+// ============================================================================
+// DELETE TRANSACTION (WITH CONFIRMATION)
+// ============================================================================
+function deleteTransaction(transactionId) {
+    // SweetAlert2 confirmation dialog
+    Swal.fire({
+        title: 'Delete Transaction?',
+        text: 'Are you sure you want to delete this transaction? This action cannot be undone!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, delete it!',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // User confirmed - proceed with deletion
+            performDeleteTransaction(transactionId);
+        }
+    });
+}
+
+// ============================================================================
+// PERFORM DELETE TRANSACTION (AJAX)
+// ============================================================================
+function performDeleteTransaction(transactionId) {
+    // Show loading
+    Swal.fire({
+        title: 'Deleting...',
+        text: 'Please wait',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    // Send delete request
+    fetch(`/api/transactions/${transactionId}/delete`, {
+        method: 'POST'  // Using POST since DELETE might have issues in some browsers
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Success notification
+            Swal.fire({
+                icon: 'success',
+                title: 'Deleted!',
+                text: data.message,
+                timer: 2000,
+                showConfirmButton: false
+            });
+
+            // Reload transactions list
+            loadTransactions();
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error!',
+                text: data.message
+            });
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error!',
+            text: 'Failed to delete transaction: ' + error.message
+        });
+    });
+}
+</script>
+{% endblock %}

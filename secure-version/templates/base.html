@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en" id="app" data-theme="abyss">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+    <!-- Security headers (CSP, X-Content-Type-Options, X-Frame-Options, HSTS,
+         Referrer-Policy, Permissions-Policy) are set as real HTTP response
+         headers in app.py's after_request hook, not as <meta> tags here —
+         X-Frame-Options has no effect at all as a meta tag in real browsers,
+         and a meta CSP can't set frame-ancestors or cover non-HTML responses. -->
+
+    <!-- Sprint 15: CSRF token, read by the patched fetch() in theme-switcher.js
+         and injected as an X-CSRFToken header on every state-changing request -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+
+    <!-- Favicon (2026-09-02): swapped to the user-designed raster "AURA"
+         mark (static/img/aura-hero-logo.png), replacing the "Interlocking
+         Rings" data:-URI SVG that was here since Sprint 53 (kept below,
+         commented, in case this doesn't read well at real favicon sizes
+         — browsers typically render tab favicons around 16-32px, well
+         below where this raster's fine highlight detail was designed to
+         be seen). -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/aura-hero-logo.png') }}">
+    <!-- <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='15%25' y1='10%25' x2='85%25' y2='90%25'%3E%3Cstop offset='0%25' stop-color='%23eef2ff'/%3E%3Cstop offset='55%25' stop-color='%23a5b4fc'/%3E%3Cstop offset='100%25' stop-color='%23818cf8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='10' cy='8.4' r='6' fill='none' stroke='url(%23g)' stroke-width='1.6'/%3E%3Ccircle cx='8.61' cy='10.8' r='6' fill='none' stroke='url(%23g)' stroke-width='1.6'/%3E%3Ccircle cx='11.39' cy='10.8' r='6' fill='none' stroke='url(%23g)' stroke-width='1.6'/%3E%3C/svg%3E"> -->
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Aura Theme Tokens + Glass Design System -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/glass.css') }}">
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <!-- Sprint 53 (UI-04, final): shared defs for the "Interlocking Rings"
+         mark — one gradient + one blur filter, referenced by id from the
+         sidebar mark below and templates/index.html's hero mark (id refs
+         resolve document-wide for inline SVG, no need to redeclare). -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <linearGradient id="auraRingGrad" x1="15%" y1="10%" x2="85%" y2="90%">
+                <stop offset="0%" stop-color="#eef2ff"/>
+                <stop offset="55%" stop-color="#a5b4fc"/>
+                <stop offset="100%" stop-color="#818cf8"/>
+            </linearGradient>
+            <filter id="auraRingFrost" x="-60%" y="-60%" width="220%" height="220%">
+                <feGaussianBlur stdDeviation="1.6"/>
+            </filter>
+        </defs>
+    </svg>
+
+    <!-- ── Animated blob background (Z0 — the scene) ─────────── -->
+    <div class="blob-layer" aria-hidden="true">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+        <div class="blob blob-4"></div>
+    </div>
+
+    <!-- Sprint 57 (ENH-02, group 6): impersonation banner — visible on
+         every page, not just /admin, since impersonation swaps the active
+         session app-wide. session is a Flask-injected template global, no
+         explicit context pass needed. z-index above the sidebar (200) so
+         it's never obscured. -->
+    {% if session.get('impersonator_id') %}
+    <div id="impersonationBanner" style="position:fixed;top:0;left:0;right:0;z-index:300;
+         background:rgba(239,68,68,0.92);color:#fff;text-align:center;padding:8px 16px;
+         font-size:0.85rem;font-weight:600;backdrop-filter:blur(8px);">
+        Viewing as <strong>{{ session['username'] }}</strong> ({{ session['impersonator_username'] }} is impersonating)
+        <button id="stopImpersonatingBtn" class="btn btn-secondary" style="margin-left:12px;font-size:0.75rem;padding:2px 10px;">Return to Admin</button>
+    </div>
+    <div style="height:38px;"></div>
+    {% endif %}
+
+    <!-- ── Glass Sidebar (Z+3) ───────────────────────────────── -->
+    <aside class="glass-sidebar">
+
+        <!-- Header: brand + collapse toggle -->
+        <div class="sidebar-header">
+            <a href="{{ url_for('main.index') }}" class="sidebar-brand">
+                <!-- Sidebar mark (2026-09-02): swapped to the user-designed
+                     raster "AURA" mark, replacing the "Interlocking Rings"
+                     vector SVG that was here since Sprint 53 (kept below,
+                     commented — this is the same real risk as the favicon
+                     above: 26px expanded / 20px collapsed is much smaller
+                     than this raster's hero-scale detail was designed for).
+                     Same .sidebar-brand-icon class, so the existing
+                     collapsed-state CSS override (glass.css) still applies
+                     unchanged. -->
+                <img src="{{ url_for('static', filename='img/aura-hero-logo.png') }}" class="sidebar-brand-icon" width="32" height="32" alt="Aura">
+                <!-- <svg class="sidebar-brand-icon" viewBox="0 0 20 20" width="26" height="26" aria-hidden="true">
+                    <g opacity="0.3" filter="url(#auraRingFrost)">
+                        <circle cx="10" cy="8.4" r="5" fill="none" stroke="#a5b4fc" stroke-width="1.7"/>
+                        <circle cx="8.61" cy="10.8" r="5" fill="none" stroke="#a5b4fc" stroke-width="1.7"/>
+                        <circle cx="11.39" cy="10.8" r="5" fill="none" stroke="#a5b4fc" stroke-width="1.7"/>
+                    </g>
+                    <circle cx="10" cy="8.4" r="5" fill="none" stroke="url(#auraRingGrad)" stroke-width="1.3"/>
+                    <circle cx="8.61" cy="10.8" r="5" fill="none" stroke="url(#auraRingGrad)" stroke-width="1.3"/>
+                    <circle cx="11.39" cy="10.8" r="5" fill="none" stroke="url(#auraRingGrad)" stroke-width="1.3"/>
+                </svg> -->
+                <span class="sidebar-brand-text">Aura</span>
+                <span class="brand-badge">Secure</span>
+            </a>
+            <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" aria-label="Toggle sidebar" title="Toggle sidebar">
+                <svg class="collapse-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true">
+                    <path d="M12.5 15l-5-5 5-5"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Navigation — only routes that currently exist -->
+        <nav class="sidebar-nav" aria-label="Main navigation">
+
+            {% if session.user_id %}
+
+            <div class="nav-group">
+                <span class="nav-group-label">Overview</span>
+
+                <a href="{{ url_for('main.dashboard') }}"
+                   class="nav-item {% if request.endpoint == 'main.dashboard' %}active{% endif %}"
+                   title="Dashboard">
+                    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="2.5" y="2.5" width="5.5" height="5.5" rx="1.5"/>
+                        <rect x="12"  y="2.5" width="5.5" height="5.5" rx="1.5"/>
+                        <rect x="2.5" y="12"  width="5.5" height="5.5" rx="1.5"/>
+                        <rect x="12"  y="12"  width="5.5" height="5.5" rx="1.5"/>
+                    </svg>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+
+                <a href="{{ url_for('reports.reports_index') }}"
+                   class="nav-item {% if request.endpoint == 'reports.reports_index' %}active{% endif %}"
+                   title="Reports">
+                    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 3h8l4 4v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>
+                        <path d="M12 3v4h4"/>
+                        <path d="M6.5 12h3M6.5 15h7"/>
+                    </svg>
+                    <span class="nav-label">Reports</span>
+                </a>
+            </div>
+
+            <div class="nav-group">
+                <span class="nav-group-label">Manage</span>
+
+                <a href="{{ url_for('transactions.list_transactions') }}"
+                   class="nav-item {% if request.endpoint == 'transactions.list_transactions' %}active{% endif %}"
+                   title="Transactions">
+                    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M6 15.5V4.5"/>
+                        <path d="M3.5 7L6 4.5 8.5 7"/>
+                        <path d="M14 4.5V15.5"/>
+                        <path d="M11.5 13L14 15.5 16.5 13"/>
+                    </svg>
+                    <span class="nav-label">Transactions</span>
+                </a>
+
+                <a href="{{ url_for('accounts.manage_accounts') }}"
+                   class="nav-item {% if request.endpoint == 'accounts.manage_accounts' %}active{% endif %}"
+                   title="Accounts">
+                    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="2" y="5" width="16" height="11" rx="2"/>
+                        <path d="M2 8.5h16"/>
+                        <path d="M5.5 12.5h3"/>
+                    </svg>
+                    <span class="nav-label">Accounts</span>
+                </a>
+
+                <a href="{{ url_for('exchange_rates.manage_exchange_rates') }}"
+                   class="nav-item {% if request.endpoint == 'exchange_rates.manage_exchange_rates' %}active{% endif %}"
+                   title="Exchange Rates">
+                    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 7h11.5M11 3.5L14.5 7 11 10.5"/>
+                        <path d="M17 13H5.5M9 9.5L5.5 13 9 16.5"/>
+                    </svg>
+                    <span class="nav-label">Exchange Rates</span>
+                </a>
+
+                <a href="{{ url_for('budgets.manage_budgets') }}"
+                   class="nav-item {% if request.endpoint == 'budgets.manage_budgets' %}active{% endif %}"
+                   title="Budgets">
+                    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M10 2a8 8 0 1 0 8 8"/>
+                        <path d="M10 2v8h8"/>
+                    </svg>
+                    <span class="nav-label">Budgets</span>
+                </a>
+
+                <a href="{{ url_for('goals.manage_goals') }}"
+                   class="nav-item {% if request.endpoint == 'goals.manage_goals' %}active{% endif %}"
+                   title="Goals">
+                    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="10" cy="10" r="8"/>
+                        <circle cx="10" cy="10" r="4.5"/>
+                        <circle cx="10" cy="10" r="1.5" fill="currentColor" stroke="none"/>
+                    </svg>
+                    <span class="nav-label">Goals</span>
+                </a>
+
+                <a href="{{ url_for('loans.manage_loans') }}"
+                   class="nav-item {% if request.endpoint == 'loans.manage_loans' %}active{% endif %}"
+                   title="Loans">
+                    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M10 2l7.5 4.3v1.4H2.5V6.3L10 2z"/>
+                        <path d="M4 8.5v7M8 8.5v7M12 8.5v7M16 8.5v7"/>
+                        <path d="M2.5 17h15"/>
+                    </svg>
+                    <span class="nav-label">Loans</span>
+                </a>
+
+                <a href="{{ url_for('recurring.manage_recurring') }}"
+                   class="nav-item {% if request.endpoint == 'recurring.manage_recurring' %}active{% endif %}"
+                   title="Recurring">
+                    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="10" cy="10" r="7.5"/>
+                        <path d="M10 6v4l2.5 2.5"/>
+                    </svg>
+                    <span class="nav-label">Recurring</span>
+                </a>
+
+                <a href="{{ url_for('categories.manage_categories') }}"
+                   class="nav-item {% if request.endpoint == 'categories.manage_categories' %}active{% endif %}"
+                   title="Categories">
+                    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M2.5 2.5h6l8 8a2 2 0 0 1 0 2.8l-2.7 2.7a2 2 0 0 1-2.8 0l-8-8V2.5z"/>
+                        <circle cx="7" cy="7" r="1.2" fill="currentColor" stroke="none"/>
+                    </svg>
+                    <span class="nav-label">Categories</span>
+                </a>
+            </div>
+
+            <div class="nav-group">
+                <span class="nav-group-label">System</span>
+
+                <a href="{{ url_for('main.profile') }}"
+                   class="nav-item {% if request.endpoint == 'main.profile' %}active{% endif %}"
+                   title="Profile">
+                    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="10" cy="7" r="3.5"/>
+                        <path d="M3 18a7 7 0 0 1 14 0"/>
+                    </svg>
+                    <span class="nav-label">Profile</span>
+                </a>
+
+                {% if session.get('is_admin') %}
+                <a href="{{ url_for('main.admin') }}"
+                   class="nav-item {% if request.endpoint == 'main.admin' %}active{% endif %}"
+                   title="Admin">
+                    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M10 1.5L3 4.5v5c0 4.5 3.1 7.5 7 8.5 3.9-1 7-4 7-8.5v-5L10 1.5z"/>
+                        <path d="M7 10l2 2 4-4"/>
+                    </svg>
+                    <span class="nav-label">Admin</span>
+                </a>
+                {% endif %}
+            </div>
+
+            {% else %}
+
+            <div class="nav-group">
+                <span class="nav-group-label">Account</span>
+
+                <a href="{{ url_for('auth.login') }}"
+                   class="nav-item {% if request.endpoint == 'auth.login' %}active{% endif %}"
+                   title="Login">
+                    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M8.5 3H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h4.5"/>
+                        <path d="M13 14l4-4-4-4"/>
+                        <path d="M17 10H8"/>
+                    </svg>
+                    <span class="nav-label">Login</span>
+                </a>
+
+                <a href="{{ url_for('auth.register') }}"
+                   class="nav-item {% if request.endpoint == 'auth.register' %}active{% endif %}"
+                   title="Register">
+                    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="8.5" cy="7" r="3.5"/>
+                        <path d="M2.5 18a6 6 0 0 1 10.3-4.2"/>
+                        <path d="M15 12.5v6M12 15.5h6"/>
+                    </svg>
+                    <span class="nav-label">Register</span>
+                </a>
+            </div>
+
+            {% endif %}
+        </nav>
+
+        <!-- DISABLED (Release 7 paused) — Abyss-only per user decision.
+             theme-switcher.js's initThemeSwitcher() already no-ops safely
+             when #theme-select doesn't exist (`if (!select) return;`), so no
+             JS change was needed here. See docs/releases/release-07-plan.md.
+        <div class="sidebar-theme">
+            <label for="theme-select" class="sidebar-theme-label">Theme</label>
+            <select id="theme-select" class="glass-select sidebar-theme-select">
+                <option value="abyss">Abyss</option>
+                <option value="daybreak">Daybreak</option>
+                <option value="ember">Ember</option>
+                <option value="wisteria">Wisteria</option>
+                <option value="tempest">Tempest</option>
+            </select>
+        </div>
+        -->
+
+        <!-- Sidebar footer — user info + logout (auto-escaped, no |safe) -->
+        {% if session.user_id %}
+        <div class="sidebar-footer">
+            <span class="sidebar-username">{{ session.username }}</span>
+            <a href="{{ url_for('auth.logout') }}" class="sidebar-logout">Sign out</a>
+        </div>
+        {% endif %}
+
+    </aside>
+
+    <!-- ── Notification bell (Sprint 21) — fixed, independent of sidebar
+         collapse state ─────────────────────────────────────── -->
+    {% if session.user_id %}
+    <div class="notification-bell-wrap" id="notificationBellWrap">
+        <button class="notification-bell-btn" id="notificationBellBtn" aria-label="Notifications" title="Notifications">
+            <svg class="bell-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5v2.2c0 .7-.25 1.4-.7 1.9L3.5 12.5h13l-1.3-1.4c-.45-.5-.7-1.2-.7-1.9V7A4.5 4.5 0 0 0 10 2.5z"/>
+                <path d="M8.2 15.5a1.8 1.8 0 0 0 3.6 0"/>
+            </svg>
+            <span class="notification-badge" id="notificationBadge" style="display:none;">0</span>
+        </button>
+        <div class="notification-panel" id="notificationPanel" style="display:none;">
+            <div class="notification-panel-header">
+                <span>Notifications</span>
+                <div class="notification-header-actions">
+                    <button type="button" id="markAllReadBtn" class="notification-markall-btn">Mark all read</button>
+                    <button type="button" id="deleteAllBtn" class="notification-deleteall-btn">Delete all</button>
+                </div>
+            </div>
+            <div class="notification-list" id="notificationList"></div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ── AI Advisor chat bubble (Sprint 23) — fixed, bottom-right so it
+         never overlaps the notification bell ─────────────────── -->
+    {% if session.user_id %}
+    <div class="chat-bubble-wrap" id="chatBubbleWrap">
+        <button class="chat-bubble-btn" id="chatBubbleBtn" aria-label="Solis, your AI advisor" title="Solis, your AI advisor">
+            <svg class="chat-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="10" cy="10" r="3.2"/>
+                <path d="M10 2.2v2M10 15.8v2M17.8 10h-2M4.2 10h-2M15.5 4.5l-1.4 1.4M5.9 14.1l-1.4 1.4M15.5 15.5l-1.4-1.4M5.9 5.9 4.5 4.5"/>
+            </svg>
+        </button>
+        <div class="chat-panel" id="chatPanel" style="display:none;">
+            <div class="chat-panel-header">
+                <span>Solis</span>
+                <div class="chat-header-actions">
+                    <button type="button" id="chatClearBtn" class="chat-clear-btn">Clear</button>
+                </div>
+            </div>
+            <div class="chat-message-list" id="chatMessageList"></div>
+            <form class="chat-input-row" id="chatInputForm">
+                <input type="text" id="chatInput" class="chat-input" placeholder="Ask about your finances..." autocomplete="off">
+                <button type="submit" class="chat-send-btn" aria-label="Send">Send</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Main scrollable content (Z+1) ─────────────────────── -->
+    <main class="main-content">
+
+        <!-- Flash Messages — auto-escaped, no |safe -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-4 flash-messages-wrap">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Page content -->
+        {% block content %}{% endblock %}
+
+        <!-- Footer -->
+        <footer class="glass-footer mt-5">
+            <p class="mb-1">{{ app_name }} — Version {{ app_version }}</p>
+            <small style="color:var(--th);">Secure Implementation | Release 4: Iron Fortress</small>
+        </footer>
+
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- SortableJS (Sprint 19: dashboard/widget drag-and-drop) -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
+    <!-- SweetAlert2 (Sprint 57 fix, ENH-02): dashboard.js/loans.js/admin.js
+         all call Swal.fire() for confirmation dialogs, but no script tag
+         for it existed anywhere in either version's base.html — a
+         pre-existing gap (not introduced here) meaning those calls have
+         been throwing "Swal is not defined" whenever triggered. Found
+         while wiring up the new admin-panel action confirmations. -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+
+    <!-- Aura Sidebar Controller -->
+    <script src="{{ url_for('static', filename='js/theme-switcher.js') }}"></script>
+
+    <!-- Notification bell (Sprint 21) — loaded globally, not just on the dashboard -->
+    {% if session.user_id %}
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+    {% endif %}
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

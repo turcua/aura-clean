@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}404 - Page Not Found - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-center align-items-center" style="min-height:70vh;">
+    <div style="width:100%;max-width:560px;text-align:center;">
+        <div class="glass-card no-hover">
+            <div style="padding:48px 40px;">
+                <h1 style="font-size:5rem;font-weight:700;color:var(--dn);line-height:1;margin-bottom:8px;">404</h1>
+                <h2 style="color:var(--tp);margin-bottom:16px;">Page Not Found</h2>
+                <p style="color:var(--ts);font-size:1rem;margin-bottom:28px;">
+                    Sorry, the page you're looking for doesn't exist or has been moved.
+                </p>
+
+                <!-- VULNERABILITY: Information disclosure in error message -->
+                <div class="alert alert-danger text-start" role="alert">
+                    <p class="mb-1"><strong>Debug Info:</strong></p>
+                    <code>{{ request.url }}</code>
+                </div>
+
+                <div class="d-flex gap-3 justify-content-center mt-4">
+                    <a href="{{ url_for('main.index') }}" class="btn btn-secondary btn-lg">
+                        Go Home
+                    </a>
+                    <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary btn-lg">
+                        Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

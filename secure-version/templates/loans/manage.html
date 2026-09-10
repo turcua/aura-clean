@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+{% block title %}Loan Intelligence - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-4 page-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1 class="page-title mb-0">Loan Intelligence</h1>
+        <div class="d-flex gap-2 align-items-center">
+            <button type="button" class="btn-glass btn-glass-secondary" id="logEventBtn" style="display:none;" data-bs-toggle="modal" data-bs-target="#logEventModal">
+                Log Event
+            </button>
+            <button type="button" class="btn-glass btn-glass-secondary" id="addLoanBtn" data-bs-toggle="modal" data-bs-target="#addLoanModal">
+                Add Loan
+            </button>
+        </div>
+    </div>
+    <div class="d-flex align-items-center gap-2 mt-2" id="loanSelectRow" style="display:none;">
+        <label class="mb-0" style="color:var(--ts);font-size:0.85rem;">Viewing:</label>
+        <select class="glass-select" id="loanSelect" style="max-width:260px;"></select>
+    </div>
+    <!-- Sprint 51 (ENH-01): operate on whichever loan is currently selected
+         above. Shown once a loan exists (loanContent's own display toggle
+         already gates that), not tied to loanSelectRow's own 2+ loans check. -->
+    <div class="d-flex align-items-center gap-2 mt-2" id="loanActionsRow" style="display:none;">
+        <button type="button" class="btn-glass btn-glass-secondary" id="editLoanBtn" style="padding:4px 12px;font-size:0.8rem;" data-bs-toggle="modal" data-bs-target="#editLoanModal">Edit Loan</button>
+        <button type="button" class="btn-glass btn-glass-secondary" id="deleteLoanBtn" style="padding:4px 12px;font-size:0.8rem;">Delete Loan</button>
+    </div>
+</div>
+
+<div id="loanEmptyState" style="display:none;text-align:center;padding:60px 0;color:var(--th);">
+    <p>No loans tracked yet.</p>
+    <button type="button" class="btn-glass btn-glass-primary" data-bs-toggle="modal" data-bs-target="#addLoanModal">
+        + Add Your First Loan
+    </button>
+</div>
+
+<div id="loanContent" style="display:none;">
+    <div class="glass-grid glass-grid-3 mb-4" id="statusCards">
+        <div class="stat-card text-center">
+            <div class="stat-label">Current Balance</div>
+            <div class="stat-value" id="currentBalanceDisplay"><div class="glass-spinner mx-auto"></div></div>
+        </div>
+        <div class="stat-card text-center">
+            <div class="stat-label">Current Installment</div>
+            <div class="stat-value" id="currentInstallmentDisplay"><div class="glass-spinner mx-auto"></div></div>
+        </div>
+        <div class="stat-card text-center">
+            <div class="stat-label">Projected Payoff</div>
+            <div class="stat-value" id="payoffDateDisplay"><div class="glass-spinner mx-auto"></div></div>
+        </div>
+    </div>
+
+    <div class="loan-card-grid mb-4">
+        <div class="glass-card loan-card" id="savingsCard">
+            <div class="glass-card-header">
+                <span class="glass-card-title">Your Extra Payments So Far</span>
+                <div class="widget-controls">
+                    <button type="button" class="widget-minimize-btn loan-card-info-btn" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="left" data-bs-custom-class="loan-info-popover" title="Your Extra Payments So Far" data-bs-content="Compared against making only the scheduled installment, with no extra payments (Baseline)." aria-label="About this card">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7.2" x2="8" y2="11.5"/><circle cx="8" cy="4.6" r="0.75" fill="currentColor" stroke="none"/></svg>
+                    </button>
+                    <button type="button" class="widget-minimize-btn loan-card-minimize-btn" data-card="savingsCard" title="Minimize / Expand">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 8,11 13,6"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div data-card-body="savingsCard" class="loan-card-body">
+                <div id="savingsHeadline" style="font-size:1.2rem;font-weight:600;font-variant-numeric:tabular-nums;">
+                    <div class="glass-spinner mx-auto"></div>
+                </div>
+                <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                        <small style="color:var(--ts);">Baseline payoff date</small>
+                        <small id="savingsBaselinePayoff" style="font-variant-numeric:tabular-nums;font-weight:600;">—</small>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                        <small style="color:var(--ts);">Time remaining (actual)</small>
+                        <small id="savingsYearsRemaining" style="font-variant-numeric:tabular-nums;font-weight:600;">—</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card loan-card" id="whatIfCard">
+            <div class="glass-card-header">
+                <span class="glass-card-title">What If I Paid More Every Month?</span>
+                <div class="widget-controls">
+                    <button type="button" class="widget-minimize-btn loan-card-info-btn" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="left" data-bs-custom-class="loan-info-popover" title="What If I Paid More Every Month?" data-bs-content="Simulates a recurring extra payment every month from a chosen date forward, on top of your real history — shows the resulting payoff date, not just one payment's effect." aria-label="About this card">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7.2" x2="8" y2="11.5"/><circle cx="8" cy="4.6" r="0.75" fill="currentColor" stroke="none"/></svg>
+                    </button>
+                    <button type="button" class="widget-minimize-btn loan-card-minimize-btn" data-card="whatIfCard" title="Minimize / Expand">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 8,11 13,6"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div data-card-body="whatIfCard" class="loan-card-body">
+                <div class="d-flex gap-2 align-items-end flex-wrap">
+                    <div class="form-group-glass mb-0" style="max-width:170px;">
+                        <label class="form-label-glass">Extra Per Month (RON)</label>
+                        <input type="number" class="glass-input" id="whatIfMonthlyAmount" value="500" step="50" min="1">
+                    </div>
+                    <div class="form-group-glass mb-0" style="max-width:170px;">
+                        <label class="form-label-glass">Starting From <span style="color:var(--th);">(optional)</span></label>
+                        <input type="date" class="glass-input" id="whatIfStartDate">
+                    </div>
+                    <button type="button" class="btn btn-secondary" id="whatIfSimulateBtn">Simulate</button>
+                </div>
+                <div id="whatIfResult" style="margin-top:14px;"></div>
+            </div>
+        </div>
+
+        <div class="glass-card loan-card" id="interestPerRonCard">
+            <div class="glass-card-header">
+                <span class="glass-card-title">When Should You Pay Extra?</span>
+                <div class="widget-controls">
+                    <button type="button" class="widget-minimize-btn loan-card-info-btn" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="left" data-bs-custom-class="loan-info-popover" title="When Should You Pay Extra?" data-bs-content="If you have this much extra to pay once, added on top of your real history — how much interest would it save depending on which month you pay it? Hover a point on the chart to see the resulting payoff date too." aria-label="About this card">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7.2" x2="8" y2="11.5"/><circle cx="8" cy="4.6" r="0.75" fill="currentColor" stroke="none"/></svg>
+                    </button>
+                    <button type="button" class="widget-minimize-btn loan-card-minimize-btn" data-card="interestPerRonCard" title="Minimize / Expand">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 8,11 13,6"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div data-card-body="interestPerRonCard" class="loan-card-body">
+                <div class="d-flex gap-2 align-items-end flex-wrap">
+                    <div class="form-group-glass mb-0" style="max-width:150px;">
+                        <label class="form-label-glass">Amount (RON)</label>
+                        <input type="number" class="glass-input" id="interestPerRonAmount" value="1000" step="50" min="1">
+                    </div>
+                    <button type="button" class="btn btn-secondary" id="interestPerRonUpdateBtn">Update</button>
+                    <div class="period-bar" id="interestPerRonPeriods">
+                        <button type="button" class="period-btn" data-period="12">1Y</button>
+                        <button type="button" class="period-btn" data-period="36">3Y</button>
+                        <button type="button" class="period-btn" data-period="60">5Y</button>
+                        <button type="button" class="period-btn active" data-period="full">Full</button>
+                    </div>
+                </div>
+                <div style="padding-top:8px;position:relative;">
+                    <div class="chart-loading-spinner" id="interestPerRonChartSpinner"><div class="glass-spinner mx-auto"></div></div>
+                    <canvas id="interestPerRonChart" height="65" style="display:none;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card loan-card" id="paymentImpactCard">
+            <div class="glass-card-header">
+                <span class="glass-card-title">Which Payments Mattered Most</span>
+                <div class="widget-controls">
+                    <button type="button" class="widget-minimize-btn loan-card-info-btn" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="left" data-bs-custom-class="loan-info-popover" title="Which Payments Mattered Most" data-bs-content="Each payment's impact if it alone hadn't happened, with every other real payment unchanged. These do not sum to the total saved above — extra payments compound against each other. Efficiency is the share of what was still structurally possible to save at that point in the loan's life, normalized so it doesn't mechanically decline near payoff the way a raw RON figure would." aria-label="About this card">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7.2" x2="8" y2="11.5"/><circle cx="8" cy="4.6" r="0.75" fill="currentColor" stroke="none"/></svg>
+                    </button>
+                    <button type="button" class="widget-minimize-btn loan-card-minimize-btn" data-card="paymentImpactCard" title="Minimize / Expand">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 8,11 13,6"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div data-card-body="paymentImpactCard" class="loan-card-body">
+                <div style="position:relative;">
+                    <div class="chart-loading-spinner" id="efficiencyTrendChartSpinner"><div class="glass-spinner mx-auto"></div></div>
+                    <canvas id="efficiencyTrendChart" height="65" style="display:none;"></canvas>
+                </div>
+                <!-- Deliberately left at the default overscroll-behavior:auto,
+                     not "contain" — auto is what lets scroll input chain to
+                     the page once this inner list's own scroll is exhausted,
+                     which is the behavior users actually want for a list
+                     embedded in the page flow. "contain" is the right choice
+                     for a modal/sheet (stop the page behind it from moving),
+                     but here it would cause exactly the "trapped" scroll
+                     feeling it's meant to avoid — reviewed, not overlooked. -->
+                <div id="paymentImpactList">
+                    <div style="text-align:center;padding:20px 0;">
+                        <div class="glass-spinner mx-auto"></div>
+                    </div>
+                </div>
+                <div class="pagination-bar" id="paymentImpactPagination"></div>
+            </div>
+        </div>
+
+        <div class="glass-card loan-card" id="timelineCard">
+            <div class="glass-card-header">
+                <span class="glass-card-title">Event Timeline</span>
+                <button type="button" class="widget-minimize-btn loan-card-minimize-btn" data-card="timelineCard" title="Minimize / Expand">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 8,11 13,6"/></svg>
+                </button>
+            </div>
+            <div data-card-body="timelineCard" class="loan-card-body">
+                <div id="timelineList">
+                    <div style="text-align:center;padding:24px 0;">
+                        <div class="glass-spinner mx-auto"></div>
+                    </div>
+                </div>
+                <div class="pagination-bar" id="timelinePagination"></div>
+
+                <!-- Sprint 49: soft-deleted events, restorable with no time
+                     limit — replaces relying on the 5-second undo toast as
+                     the only recovery path. Collapsed by default since it's
+                     usually empty; renderRecentlyDeleted() fills the count
+                     and list, and hides the whole <details> when empty. -->
+                <details id="recentlyDeletedWrap" style="margin-top:14px;display:none;">
+                    <summary style="cursor:pointer;color:var(--ts);font-size:0.85rem;">Recently Deleted (<span id="recentlyDeletedCount">0</span>)</summary>
+                    <div id="recentlyDeletedList" style="margin-top:8px;"></div>
+                </details>
+            </div>
+        </div>
+
+        <!-- Sprint 51 (ENH-13): every real transaction tied to this loan,
+             extra and scheduled together, display/audit only — never feeds
+             back into the projection engine. -->
+        <div class="glass-card loan-card" id="paymentLedgerCard">
+            <div class="glass-card-header">
+                <span class="glass-card-title">Payment Ledger</span>
+                <button type="button" class="widget-minimize-btn loan-card-minimize-btn" data-card="paymentLedgerCard" title="Minimize / Expand">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 8,11 13,6"/></svg>
+                </button>
+            </div>
+            <div data-card-body="paymentLedgerCard" class="loan-card-body">
+                <div id="paymentLedgerList">
+                    <div style="text-align:center;padding:24px 0;">
+                        <div class="glass-spinner mx-auto"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LOG EVENT MODAL -->
+<div class="modal fade" id="logEventModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Log Loan Event</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="logEventForm">
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Event Type</label>
+                        <select class="glass-select" name="event_type" id="eventType">
+                            <option value="rate_change">Rate Change</option>
+                            <option value="bank_snapshot">Bank Snapshot</option>
+                        </select>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Upload Bank Chart (PDF) <span style="color:var(--th);">(optional — pre-fills the fields below, review before saving)</span></label>
+                        <div id="chartDropZone" style="border:2px dashed var(--gb);border-radius:8px;padding:20px;text-align:center;cursor:pointer;">
+                            <p style="margin:0;color:var(--ts);">Drag &amp; drop a PDF here, or click to browse</p>
+                            <input type="file" id="chartFileInput" accept=".pdf" style="display:none;">
+                        </div>
+                        <div id="chartRawTextWrap" style="display:none;margin-top:10px;">
+                            <details>
+                                <summary style="cursor:pointer;color:var(--ts);font-size:0.85rem;">View extracted text (for cross-checking)</summary>
+                                <pre id="chartRawText" style="max-height:200px;overflow:auto;font-size:0.75rem;padding:8px;border-radius:4px;white-space:pre-wrap;border:1px solid var(--gb);"></pre>
+                            </details>
+                        </div>
+                    </div>
+
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Effective Date</label>
+                        <input type="date" class="glass-input" name="effective_date" id="eventDate" required>
+                    </div>
+
+                    <div id="rateChangeFields">
+                        <div class="form-group-glass">
+                            <label class="form-label-glass">New Base Index (%)</label>
+                            <input type="number" class="glass-input" name="new_base_index_pct" step="0.001" placeholder="e.g. 5.68">
+                        </div>
+                    </div>
+
+                    <div id="bankSnapshotFields" style="display:none;">
+                        <div class="form-group-glass">
+                            <label class="form-label-glass">Remaining Principal</label>
+                            <input type="number" class="glass-input" name="remaining_principal" step="0.01" placeholder="e.g. 240900.00">
+                        </div>
+                        <div class="form-group-glass">
+                            <label class="form-label-glass">Remaining Term (months)</label>
+                            <input type="number" class="glass-input" name="remaining_term_months" step="1" placeholder="e.g. 178">
+                        </div>
+                        <div class="form-group-glass">
+                            <label class="form-label-glass">Current Total Rate (%)</label>
+                            <input type="number" class="glass-input" name="current_rate_pct" step="0.001" placeholder="e.g. 7.56">
+                        </div>
+                        <div class="form-group-glass">
+                            <label class="form-label-glass">Remaining Total Interest <span style="color:var(--th);">(optional — "Dobanda" total from the chart's Total RON: row)</span></label>
+                            <input type="number" class="glass-input" name="remaining_interest_total" step="0.01" placeholder="e.g. 161573.78">
+                        </div>
+                        <div class="form-group-glass">
+                            <label class="form-label-glass">Reported Installment <span style="color:var(--th);">(optional — the bank's own stated payment amount from row 1 of the chart; used as-is instead of re-derived, avoiding small rounding drift)</span></label>
+                            <input type="number" class="glass-input" name="reported_installment" step="0.01" placeholder="e.g. 2252.80">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="saveEventBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- ADD LOAN MODAL -->
+<div class="modal fade" id="addLoanModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Loan</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addLoanForm">
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Loan Name</label>
+                        <input type="text" class="glass-input" name="name" placeholder="e.g. Home Loan" required>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Principal</label>
+                        <input type="number" class="glass-input" name="principal" step="0.01" min="0.01" placeholder="e.g. 300000.00" required>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Currency</label>
+                        <select class="glass-select" name="currency" id="addLoanCurrency"></select>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Margin (%)</label>
+                        <input type="number" class="glass-input" name="margin_pct" step="0.001" placeholder="e.g. 2.0" required>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Initial Base Index (%)</label>
+                        <input type="number" class="glass-input" name="initial_base_index_pct" step="0.001" placeholder="e.g. 5.55" required>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Start Date</label>
+                        <input type="date" class="glass-input" name="start_date" required>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Original Term (months)</label>
+                        <input type="number" class="glass-input" name="original_term_months" step="1" min="1" placeholder="e.g. 300" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="saveLoanBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT LOAN MODAL (Sprint 51, ENH-01) -->
+<div class="modal fade" id="editLoanModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Loan</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- principal/start_date/original_term_months are deliberately
+                     not editable here — project() replays every projection
+                     from those values, so changing them after events already
+                     exist could make the Baseline track's meaning confusing.
+                     Delete and recreate the loan instead if one of those is
+                     wrong (confirmed with user, Sprint 51 planning). -->
+                <p style="color:var(--th);font-size:0.8rem;">Principal, start date, and term aren't editable here — delete and recreate the loan if one of those is wrong.</p>
+                <form id="editLoanForm">
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Loan Name</label>
+                        <input type="text" class="glass-input" name="name" required>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Currency</label>
+                        <select class="glass-select" name="currency" id="editLoanCurrency"></select>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Margin (%)</label>
+                        <input type="number" class="glass-input" name="margin_pct" step="0.001" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="saveLoanEditBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/loans.js') }}"></script>
+{% endblock %}

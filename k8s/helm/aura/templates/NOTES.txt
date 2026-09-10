@@ -1,0 +1,17 @@
+Aura has been deployed.
+
+{{- if .Values.secure.enabled }}
+Secure app:      kubectl port-forward -n {{ .Values.secure.namespace }} svc/app-secure 5050:80
+{{- end }}
+{{- if .Values.vulnerable.enabled }}
+Vulnerable app:  kubectl port-forward -n {{ .Values.vulnerable.namespace }} svc/app-vulnerable 5051:80
+{{- end }}
+{{- if .Values.monitoring.enabled }}
+Prometheus:      kubectl port-forward -n {{ .Values.monitoring.namespace }} svc/prometheus 9090:9090
+Grafana:         kubectl port-forward -n {{ .Values.monitoring.namespace }} svc/grafana 3000:3000
+                 (login: {{ .Values.monitoring.grafana.adminUser }} / <the password you set, default "admin">)
+{{- end }}
+
+Reminder: the mysql-secure-init / mysql-vulnerable-init ConfigMaps are NOT
+created by this chart. If this is a fresh install, generate them first —
+see k8s/README.md — or MySQL will start with no schema.

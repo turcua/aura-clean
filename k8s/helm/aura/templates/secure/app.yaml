@@ -1,0 +1,107 @@
+{{- if .Values.secure.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-secure-config
+  namespace: {{ .Values.secure.namespace }}
+data:
+  FLASK_APP: app.py
+  FLASK_ENV: production
+  DATABASE_HOST: mysql-secure
+  DATABASE_PORT: "3306"
+  DATABASE_NAME: {{ .Values.secure.mysql.database | quote }}
+  DATABASE_USER: {{ .Values.secure.mysql.user | quote }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secure-secrets
+  namespace: {{ .Values.secure.namespace }}
+type: Opaque
+stringData:
+  DATABASE_PASSWORD: {{ .Values.secure.mysql.password | quote }}
+  SECRET_KEY: {{ .Values.secure.secretKey | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-secure
+  namespace: {{ .Values.secure.namespace }}
+  labels: { app: app-secure }
+spec:
+  replicas: {{ .Values.secure.replicaCount }}
+  selector:
+    matchLabels: { app: app-secure }
+  template:
+    metadata:
+      labels: { app: app-secure }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "5000"
+    spec:
+      initContainers:
+        - name: wait-for-mysql
+          image: mysql:8.0
+          command:
+            - sh
+            - -c
+            - >
+              until mysqladmin ping -h mysql-secure -u root -p"$MYSQL_ROOT_PASSWORD" --silent;
+              do echo waiting for mysql-secure; sleep 2; done
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: mysql-secure-credentials, key: MYSQL_ROOT_PASSWORD }
+      containers:
+        - name: app-secure
+          image: "{{ .Values.secure.image.repository }}:{{ .Values.secure.image.tag }}"
+          imagePullPolicy: {{ .Values.secure.image.pullPolicy }}
+          ports: [{ containerPort: 5000 }]
+          envFrom:
+            - configMapRef: { name: app-secure-config }
+            - secretRef: { name: app-secure-secrets }
+          resources:
+            {{- toYaml .Values.secure.resources | nindent 12 }}
+          livenessProbe:
+            httpGet: { path: /health, port: 5000 }
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /health, port: 5000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-secure
+  namespace: {{ .Values.secure.namespace }}
+spec:
+  selector: { app: app-secure }
+  ports: [{ port: 80, targetPort: 5000, name: http }]
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: app-secure
+  namespace: {{ .Values.secure.namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: app-secure
+  minReplicas: {{ .Values.secure.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.secure.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: {{ .Values.secure.autoscaling.targetCPUUtilizationPercentage }} }
+    - type: Resource
+      resource:
+        name: memory
+        target: { type: Utilization, averageUtilization: {{ .Values.secure.autoscaling.targetMemoryUtilizationPercentage }} }
+{{- end }}

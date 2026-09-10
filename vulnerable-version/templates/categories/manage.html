@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+{% block title %}Manage Categories - {{ app_name }}{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4 page-header">
+    <h1 class="page-title mb-0">Categories</h1>
+    <button type="button" class="btn-glass btn-glass-secondary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+        Add Category
+    </button>
+</div>
+
+<!-- Category Type Tabs -->
+<ul class="nav nav-tabs mb-4" id="categoryTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="expense-tab" data-bs-toggle="tab"
+                data-bs-target="#expense-categories" type="button" role="tab">
+            Expense Categories
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="income-tab" data-bs-toggle="tab"
+                data-bs-target="#income-categories" type="button" role="tab">
+            Income Categories
+        </button>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content" id="categoryTabContent">
+
+    <div class="tab-pane fade show active" id="expense-categories" role="tabpanel">
+        <div class="glass-grid glass-grid-4" id="expenseCategoriesList">
+            <div class="empty-state">
+                <div class="glass-spinner" style="margin:0 auto 12px;"></div>
+                <p>Loading expense categories…</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="income-categories" role="tabpanel">
+        <div class="glass-grid glass-grid-4" id="incomeCategoriesList">
+            <div class="empty-state">
+                <div class="glass-spinner" style="margin:0 auto 12px;"></div>
+                <p>Loading income categories…</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ADD CATEGORY MODAL -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1" aria-labelledby="addCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addCategoryModalLabel">Add New Category</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addCategoryForm">
+                    <div class="form-group-glass">
+                        <label for="add_category_name" class="form-label-glass">Category Name</label>
+                        <input type="text" class="glass-input" id="add_category_name"
+                               name="name" placeholder="e.g., Groceries, Salary" required>
+                    </div>
+                    <!-- form-group-glass--static: see Sprint 36 note on the equivalent
+                         field in transactions/list.html — a radio-button group has no
+                         single target for a floating label to move out of the way of. -->
+                    <div class="form-group-glass form-group-glass--static">
+                        <label class="form-label-glass">Type</label>
+                        <div class="type-toggle" role="radiogroup" aria-label="Category type">
+                            <input class="type-toggle-input" type="radio" name="type" id="add_type_income" value="income">
+                            <label class="type-toggle-option" for="add_type_income">Income</label>
+                            <input class="type-toggle-input" type="radio" name="type" id="add_type_expense" value="expense" checked>
+                            <label class="type-toggle-option" for="add_type_expense">Expense</label>
+                        </div>
+                    </div>
+                    <div class="form-group-glass">
+                        <label for="add_category_color" class="form-label-glass">Color</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="color" class="glass-input" style="width:60px;height:40px;padding:4px 6px;cursor:pointer;"
+                                   id="add_category_color" name="color" value="#3d7bff">
+                            <span id="add_color_preview" class="glass-badge"
+                                  style="background-color:#3d7bff;padding:6px 16px;">Preview</span>
+                        </div>
+                    </div>
+                    <!-- VULNERABILITY: Can be manipulated -->
+                    <input type="hidden" id="add_user_id" name="user_id" value="{{ session.user_id }}">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveCategoryBtn">Save Category</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT CATEGORY MODAL -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1" aria-labelledby="editCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editCategoryModalLabel">Edit Category</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editCategoryForm">
+                    <div class="form-group-glass">
+                        <label for="edit_category_name" class="form-label-glass">Category Name</label>
+                        <input type="text" class="glass-input" id="edit_category_name"
+                               name="name" required>
+                    </div>
+                    <div class="form-group-glass form-group-glass--static">
+                        <label class="form-label-glass">Type</label>
+                        <div class="type-toggle" role="radiogroup" aria-label="Category type">
+                            <input class="type-toggle-input" type="radio" name="type" id="edit_type_income" value="income">
+                            <label class="type-toggle-option" for="edit_type_income">Income</label>
+                            <input class="type-toggle-input" type="radio" name="type" id="edit_type_expense" value="expense">
+                            <label class="type-toggle-option" for="edit_type_expense">Expense</label>
+                        </div>
+                    </div>
+                    <div class="form-group-glass">
+                        <label for="edit_category_color" class="form-label-glass">Color</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="color" class="glass-input" style="width:60px;height:40px;padding:4px 6px;cursor:pointer;"
+                                   id="edit_category_color" name="color">
+                            <span id="edit_color_preview" class="glass-badge" style="padding:6px 16px;">Preview</span>
+                        </div>
+                    </div>
+                    <input type="hidden" id="edit_category_id" name="category_id">
+                    <input type="hidden" id="edit_user_id" name="user_id" value="{{ session.user_id }}">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="updateCategoryBtn">Update Category</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentUserId = {{ session.user_id }};
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadCategories('expense');
+    loadCategories('income');
+    setupEventListeners();
+});
+
+function setupEventListeners() {
+    document.getElementById('saveCategoryBtn').addEventListener('click', saveCategory);
+    document.getElementById('updateCategoryBtn').addEventListener('click', updateCategory);
+
+    document.getElementById('add_category_color').addEventListener('input', function() {
+        document.getElementById('add_color_preview').style.backgroundColor = this.value;
+    });
+    document.getElementById('edit_category_color').addEventListener('input', function() {
+        document.getElementById('edit_color_preview').style.backgroundColor = this.value;
+    });
+}
+
+function loadCategories(type) {
+    const containerId = type === 'expense' ? 'expenseCategoriesList' : 'incomeCategoriesList';
+    const container = document.getElementById(containerId);
+
+    fetch(`/api/categories/list?user_id=${currentUserId}&type=${type}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.categories.length === 0) {
+                    container.innerHTML = `
+                        <div class="col-12 text-center py-5" style="color:var(--th);">
+                            <p class="mb-0">No ${type} categories yet. Click "Add Category" to create one!</p>
+                        </div>`;
+                } else {
+                    container.innerHTML = '';
+                    data.categories.forEach(category => {
+                        container.appendChild(createCategoryCard(category));
+                    });
+                }
+            } else {
+                container.innerHTML = `<div class="col-12 text-center" style="color:var(--dn);">Error loading categories: ${data.message}</div>`;
+            }
+        })
+        .catch(error => {
+            container.innerHTML = `<div class="col-12 text-center" style="color:var(--dn);">Error: ${error.message}</div>`;
+        });
+}
+
+function createCategoryCard(category) {
+    const col = document.createElement('div');
+
+    const typeBadge = category.type === 'income'
+        ? '<span class="glass-badge badge-income">income</span>'
+        : '<span class="glass-badge badge-expense">expense</span>';
+
+    const actions = category.is_default
+        ? `<div class="text-center mt-3"><span class="glass-badge">System Default</span></div>`
+        : `<div class="d-flex gap-2 mt-3">
+               <button class="btn btn-sm btn-secondary flex-fill" onclick="openEditModal(${category.id})">Edit</button>
+               <button class="btn btn-sm btn-secondary flex-fill" onclick="deleteCategory(${category.id}, '${category.name}')">Delete</button>
+           </div>`;
+
+    col.innerHTML = `
+        <div class="glass-card" style="padding:18px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="colour-dot" style="background:${category.color};"></span>
+                    <span style="font-weight:600;font-size:0.875rem;">${category.name}</span>
+                </div>
+                ${typeBadge}
+            </div>
+            ${actions}
+        </div>`;
+
+    return col;
+}
+
+function saveCategory() {
+    const form = document.getElementById('addCategoryForm');
+    const formData = new FormData(form);
+    const data = {
+        user_id: formData.get('user_id'),
+        name: formData.get('name'),
+        type: formData.get('type'),
+        color: formData.get('color')
+    };
+
+    const saveBtn = document.getElementById('saveCategoryBtn');
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = 'Saving...';
+
+    fetch('/api/categories/create', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({icon:'success', title:'Category Created!', text:data.message, timer:2000, showConfirmButton:false});
+            bootstrap.Modal.getInstance(document.getElementById('addCategoryModal')).hide();
+            form.reset();
+            document.getElementById('add_category_color').value = '#3d7bff';
+            document.getElementById('add_color_preview').style.backgroundColor = '#3d7bff';
+            loadCategories(formData.get('type'));
+        } else {
+            Swal.fire({icon:'error', title:'Error!', text:data.message});
+        }
+    })
+    .catch(error => {
+        Swal.fire({icon:'error', title:'Error!', text:'Failed to save category: ' + error.message});
+    })
+    .finally(() => {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = 'Save Category';
+    });
+}
+
+function openEditModal(categoryId) {
+    fetch(`/api/categories/${categoryId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const category = data.category;
+                document.getElementById('edit_category_id').value = category.id;
+                document.getElementById('edit_category_name').value = category.name;
+                document.getElementById('edit_category_color').value = category.color;
+                document.getElementById('edit_color_preview').style.backgroundColor = category.color;
+                document.getElementById('edit_user_id').value = category.user_id;
+                if (category.type === 'income') {
+                    document.getElementById('edit_type_income').checked = true;
+                } else {
+                    document.getElementById('edit_type_expense').checked = true;
+                }
+                new bootstrap.Modal(document.getElementById('editCategoryModal')).show();
+            } else {
+                Swal.fire({icon:'error', title:'Error!', text:'Failed to load category: ' + data.message});
+            }
+        })
+        .catch(error => {
+            Swal.fire({icon:'error', title:'Error!', text:'Failed to fetch category: ' + error.message});
+        });
+}
+
+function updateCategory() {
+    const form = document.getElementById('editCategoryForm');
+    const formData = new FormData(form);
+    const categoryId = formData.get('category_id');
+    const data = {
+        user_id: formData.get('user_id'),
+        name: formData.get('name'),
+        type: formData.get('type'),
+        color: formData.get('color')
+    };
+
+    const updateBtn = document.getElementById('updateCategoryBtn');
+    updateBtn.disabled = true;
+    updateBtn.innerHTML = 'Updating...';
+
+    fetch(`/api/categories/${categoryId}/update`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({icon:'success', title:'Category Updated!', text:data.message, timer:2000, showConfirmButton:false});
+            bootstrap.Modal.getInstance(document.getElementById('editCategoryModal')).hide();
+            loadCategories(formData.get('type'));
+        } else {
+            Swal.fire({icon:'error', title:'Error!', text:data.message});
+        }
+    })
+    .catch(error => {
+        Swal.fire({icon:'error', title:'Error!', text:'Failed to update category: ' + error.message});
+    })
+    .finally(() => {
+        updateBtn.disabled = false;
+        updateBtn.innerHTML = 'Update Category';
+    });
+}
+
+function deleteCategory(categoryId, categoryName) {
+    Swal.fire({
+        title: 'Delete Category?',
+        text: `Are you sure you want to delete "${categoryName}"? This action cannot be undone!`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, delete it!',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({title:'Deleting...', allowOutsideClick:false, didOpen:()=>Swal.showLoading()});
+            fetch(`/api/categories/${categoryId}/delete`, {method:'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({icon:'success', title:'Deleted!', text:data.message, timer:2000, showConfirmButton:false});
+                        loadCategories('expense');
+                        loadCategories('income');
+                    } else {
+                        Swal.fire({icon:'error', title:'Error!', text:data.message});
+                    }
+                })
+                .catch(error => {
+                    Swal.fire({icon:'error', title:'Error!', text:'Failed to delete category: ' + error.message});
+                });
+        }
+    });
+}
+</script>
+{% endblock %}

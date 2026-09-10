@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <h1 class="page-title">User Profile</h1>
+
+        <div class="glass-card no-hover">
+            <div class="row mb-3">
+                <div class="col-sm-4" style="color:var(--ts); font-weight:600;">Username:</div>
+                <div class="col-sm-8">{{ user.username }}</div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-sm-4" style="color:var(--ts); font-weight:600;">Email:</div>
+                <div class="col-sm-8">{{ user.email }}</div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-sm-4" style="color:var(--ts); font-weight:600;">User ID:</div>
+                <div class="col-sm-8">{{ user.id }}</div>
+            </div>
+
+            <div class="glass-divider"></div>
+
+            <!-- Sprint 52 (ENH-04) -->
+            <div class="row mb-3 align-items-center">
+                <div class="col-sm-4" style="color:var(--ts); font-weight:600;">Two-Factor Auth:</div>
+                <div class="col-sm-8">
+                    {% if user.totp_enabled %}
+                        <span class="glass-badge badge-income">Enabled</span>
+                        <form method="POST" action="{{ url_for('auth.disable_2fa') }}" class="mt-2 d-flex gap-2 align-items-center">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="text" class="glass-input" name="code" placeholder="Enter code to disable" style="max-width:200px;" required>
+                            <button type="submit" class="btn-glass btn-glass-secondary" style="padding:6px 14px;font-size:0.8rem;">Disable</button>
+                        </form>
+                    {% else %}
+                        <span class="glass-badge">Disabled</span>
+                        <a href="{{ url_for('auth.setup_2fa') }}" class="btn-glass btn-glass-secondary d-block mt-2" style="padding:6px 14px;font-size:0.8rem;width:fit-content;">Enable 2FA</a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="glass-divider"></div>
+
+            <div class="alert alert-info mb-0" role="alert">
+                <strong>Note:</strong> Profile editing features will be available in future sprints.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

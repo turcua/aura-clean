@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Home - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto text-center">
+        <!-- Home hero image (2026-09-02): user-designed "AURA" mark (glass
+             sphere/ring/A), replacing the small "Interlocking Rings" SVG
+             here only — that vector mark stays everywhere else (favicon,
+             sidebar) since this new image is a raster (photorealistic
+             render, not flat vector) that only holds up at larger sizes.
+             Source is a 6250x6250 PNG; displayed at a fixed smaller width
+             via the width attribute below, browser scales down. -->
+        <img src="{{ url_for('static', filename='img/aura-hero-logo.png') }}" alt="Aura" class="home-hero-logo mb-3" width="300" height="300">
+        <h1 class="display-4 mb-4">Welcome to Aura</h1>
+        <p class="lead mb-4">Your Personal Financial Tracker</p>
+        <p class="mb-5" style="color:var(--ts);">
+            Track your income and expenses, manage multiple currencies, and gain insights into your financial health.
+        </p>
+
+        <div class="glass-grid glass-grid-3 mb-5">
+            <div class="glass-card no-hover text-start">
+                <h5 style="color:var(--tp);font-weight:600;margin-bottom:8px;">📊 Track Transactions</h5>
+                <p class="mb-0" style="color:var(--ts);">Easily record your income and expenses with our intuitive interface.</p>
+            </div>
+            <div class="glass-card no-hover text-start">
+                <h5 style="color:var(--tp);font-weight:600;margin-bottom:8px;">💱 Multi-Currency</h5>
+                <p class="mb-0" style="color:var(--ts);">Support for multiple currencies with real-time conversion.</p>
+            </div>
+            <div class="glass-card no-hover text-start">
+                <h5 style="color:var(--tp);font-weight:600;margin-bottom:8px;">📈 Reports &amp; Insights</h5>
+                <p class="mb-0" style="color:var(--ts);">Generate detailed reports and visualize your financial data.</p>
+            </div>
+        </div>
+
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+            <a href="{{ url_for('auth.register') }}" class="btn-glass btn-glass-secondary btn-lg px-5">Get Started</a>
+            <a href="{{ url_for('auth.login') }}" class="btn-glass btn-glass-secondary btn-lg px-5">Login</a>
+        </div>
+
+        <div class="alert alert-success mt-5" role="alert">
+            <h5 class="alert-heading">🔒 Secure Version</h5>
+            <p class="mb-0">This is the secure implementation with proper security controls and best practices.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

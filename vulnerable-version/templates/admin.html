@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - {{ app_name }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title mb-4">Admin Panel <span style="color:var(--dn);font-size:1rem;font-weight:400;">(Unsecured)</span></h1>
+
+<div class="alert alert-danger mb-4" role="alert">
+    <strong>VULNERABILITY:</strong> No Authentication Required! This admin panel is accessible without any authentication check.
+</div>
+
+<div class="glass-card no-hover mb-4">
+    <div class="glass-card-header">
+        <span class="glass-card-title">User Search</span>
+    </div>
+    <div style="padding:16px 20px;">
+        <!-- VULNERABILITY: SQL Injection in search -->
+        <form method="GET" action="{{ url_for('main.admin') }}">
+            <div class="d-flex gap-2 mb-3">
+                <input type="text" class="glass-input" name="search" style="flex:1;"
+                       placeholder="Search users... (Try SQL injection!)"
+                       value="{{ request.args.get('search', '') }}">
+                <button class="btn btn-secondary" type="submit" style="flex-shrink:0;">Search</button>
+            </div>
+        </form>
+        <div class="alert alert-warning" role="alert">
+            <small>Hint: Try <code>' OR '1'='1</code> or <code>' UNION SELECT null,username,password,null FROM users--</code></small>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card no-hover">
+    <div class="glass-card-header">
+        <span class="glass-card-title">All Users <span style="color:var(--dn);font-weight:400;font-size:0.8rem;">(Including Passwords!)</span></span>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="glass-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Password (Plaintext!)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user[0] }}</td>
+                    <td>{{ user[1] }}</td>
+                    <td>{{ user[2] }}</td>
+                    <td><code style="color:var(--dn);">{{ user[3] }}</code></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

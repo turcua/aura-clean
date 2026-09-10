@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Two-Factor Authentication - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-center align-items-center" style="min-height:70vh;">
+    <div style="width:100%;max-width:420px;">
+        <div class="glass-card no-hover">
+            <div style="padding:40px;">
+                <h2 class="page-title text-center mb-2" style="font-size:1.5rem;">Two-Factor Authentication</h2>
+                <p class="text-center mb-4" style="color:var(--ts);font-size:0.875rem;">Enter the 6-digit code from your authenticator app.</p>
+
+                <!-- VULNERABILITY: No CSRF protection, no rate limiting on submission -->
+                <form method="POST" action="{{ url_for('auth.verify_2fa') }}">
+                    <div class="form-group-glass">
+                        <label for="code" class="form-label-glass">Authentication Code</label>
+                        <input type="text" class="glass-input" id="code" name="code" inputmode="numeric" placeholder="123456" autofocus>
+                    </div>
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn-glass btn-glass-secondary btn-lg">Verify</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

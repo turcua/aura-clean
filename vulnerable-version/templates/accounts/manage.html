@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+{% block title %}Accounts - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 page-header">
+    <h1 class="page-title mb-0">My Accounts</h1>
+    <div class="d-flex gap-2">
+        <button class="btn btn-secondary btn-lg" data-bs-toggle="modal" data-bs-target="#transferModal">
+            Transfer
+        </button>
+        <button class="btn-glass btn-glass-secondary" data-bs-toggle="modal" data-bs-target="#addAccountModal">
+            Add Account
+        </button>
+    </div>
+</div>
+
+<!-- Net Worth Summary -->
+<div class="glass-grid glass-grid-3 mb-4" id="summaryCards">
+    <div class="stat-card text-center">
+        <div class="stat-label">Net Worth</div>
+        <div class="stat-value" id="netWorthDisplay">
+            <div class="glass-spinner mx-auto" style="margin:4px auto;"></div>
+        </div>
+    </div>
+    <div class="stat-card text-center">
+        <div class="stat-label">Budget Balance</div>
+        <div class="stat-value" id="budgetBalanceDisplay">
+            <div class="glass-spinner mx-auto" style="margin:4px auto;"></div>
+        </div>
+    </div>
+    <div class="stat-card text-center">
+        <div class="stat-label">Total Accounts</div>
+        <div class="stat-value" id="accountCountDisplay">—</div>
+    </div>
+</div>
+
+<!-- Accounts List -->
+<div class="glass-grid glass-grid-3" id="accountsList">
+    <div style="grid-column:1/-1;text-align:center;padding:40px 0;">
+        <div class="glass-spinner mx-auto mb-2"></div>
+        <p style="color:var(--th);">Loading accounts...</p>
+    </div>
+</div>
+
+<!-- ADD ACCOUNT MODAL -->
+<div class="modal fade" id="addAccountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Account</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addAccountForm">
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Account Name</label>
+                        <input type="text" class="glass-input" name="name" placeholder="e.g., Main Checking" required>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Account Type</label>
+                        <select class="glass-select" name="type" id="addAccountType">
+                            <option value="checking">Checking</option>
+                            <option value="savings">Savings</option>
+                            <option value="credit_card">Credit Card</option>
+                            <option value="investment">Investment</option>
+                            <option value="cash">Cash</option>
+                        </select>
+                    </div>
+                    <!-- Sprint 57 (ENH-11): shown only for type=savings, toggled in
+                         accounts.js. No server-side check that type is actually
+                         'savings' or that the rate is bounded — same "no input
+                         validation" convention as this whole file. -->
+                    <div id="addInterestSection" style="display:none;">
+                        <div class="form-group-glass">
+                            <label class="form-label-glass">Annual Interest Rate (%)</label>
+                            <input type="number" class="glass-input" name="interest_rate_annual" step="0.001" placeholder="e.g., 4.5">
+                        </div>
+                        <div class="form-group-glass">
+                            <label class="form-label-glass">Accrual Frequency</label>
+                            <select class="glass-select" name="interest_accrual_frequency">
+                                <option value="monthly">Monthly</option>
+                                <option value="daily">Daily</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group-glass">
+                        <!-- VULNERABILITY: currency is free text, not restricted to RON/EUR/USD/IDR (VULN-066) -->
+                        <label class="form-label-glass">Currency</label>
+                        <input type="text" class="glass-input" name="currency" value="RON" placeholder="e.g. RON, EUR, USD">
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Initial Balance</label>
+                        <input type="number" class="glass-input" name="initial_balance" value="0" step="0.01">
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Description</label>
+                        <input type="text" class="glass-input" name="description" placeholder="Optional notes">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" name="include_in_budget" id="addIncludeBudget" checked>
+                        <label class="form-check-label" for="addIncludeBudget">Include in Budget</label>
+                    </div>
+                    <!-- VULNERABILITY: user_id from session, manipulable -->
+                    <input type="hidden" name="user_id" value="{{ session.user_id }}">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="saveAccountBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT ACCOUNT MODAL -->
+<div class="modal fade" id="editAccountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Account</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editAccountForm">
+                    <input type="hidden" name="account_id" id="editAccountId">
+                    <input type="hidden" name="user_id" value="{{ session.user_id }}">
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Account Name</label>
+                        <input type="text" class="glass-input" name="name" id="editAccountName" required>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Account Type</label>
+                        <select class="glass-select" name="type" id="editAccountType">
+                            <option value="checking">Checking</option>
+                            <option value="savings">Savings</option>
+                            <option value="credit_card">Credit Card</option>
+                            <option value="investment">Investment</option>
+                            <option value="cash">Cash</option>
+                        </select>
+                    </div>
+                    <!-- Sprint 57 (ENH-11): see the identical section in the Add
+                         modal above. -->
+                    <div id="editInterestSection" style="display:none;">
+                        <div class="form-group-glass">
+                            <label class="form-label-glass">Annual Interest Rate (%)</label>
+                            <input type="number" class="glass-input" name="interest_rate_annual" id="editInterestRate" step="0.001" placeholder="e.g., 4.5">
+                        </div>
+                        <div class="form-group-glass">
+                            <label class="form-label-glass">Accrual Frequency</label>
+                            <select class="glass-select" name="interest_accrual_frequency" id="editInterestFrequency">
+                                <option value="monthly">Monthly</option>
+                                <option value="daily">Daily</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Currency</label>
+                        <input type="text" class="glass-input" name="currency" id="editAccountCurrency">
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Description</label>
+                        <input type="text" class="glass-input" name="description" id="editAccountDesc">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" name="include_in_budget" id="editIncludeBudget">
+                        <label class="form-check-label" for="editIncludeBudget">Include in Budget</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="updateAccountBtn">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TRANSFER MODAL -->
+<div class="modal fade" id="transferModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Transfer Between Accounts</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="transferForm">
+                    <input type="hidden" name="user_id" value="{{ session.user_id }}">
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">From Account</label>
+                        <select class="glass-select" name="from_account_id" id="transferFrom"></select>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">To Account</label>
+                        <select class="glass-select" name="to_account_id" id="transferTo"></select>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Amount</label>
+                        <input type="number" class="glass-input" name="amount" step="0.01" min="0.01" required>
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Description</label>
+                        <input type="text" class="glass-input" name="description" value="Transfer">
+                    </div>
+                    <div class="form-group-glass">
+                        <label class="form-label-glass">Date</label>
+                        <input type="date" class="glass-input" name="transfer_date" id="transferDate">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-secondary" id="executeTransferBtn">Transfer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const currentUserId = {{ session.user_id }};
+const TYPE_ICONS = {checking:'', savings:'', credit_card:'', investment:'', cash:''};
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadAccounts();
+    loadSummary();
+    document.getElementById('saveAccountBtn').addEventListener('click', saveAccount);
+    document.getElementById('updateAccountBtn').addEventListener('click', updateAccount);
+    document.getElementById('executeTransferBtn').addEventListener('click', executeTransfer);
+    // Set today's date on transfer modal
+    document.getElementById('transferDate').value = new Date().toISOString().split('T')[0];
+    initAccountSortable();
+
+    // Sprint 57 (ENH-11): interest fields only shown for type=savings.
+    document.getElementById('addAccountType').addEventListener('change', function() {
+        toggleInterestSection('addAccountType', 'addInterestSection');
+    });
+    document.getElementById('editAccountType').addEventListener('change', function() {
+        toggleInterestSection('editAccountType', 'editInterestSection');
+    });
+});
+
+function toggleInterestSection(typeSelectId, sectionId) {
+    const isSavings = document.getElementById(typeSelectId).value === 'savings';
+    document.getElementById(sectionId).style.display = isSavings ? '' : 'none';
+}
+
+// Sprint 53 (UI-01) — drag-and-drop reordering, same mechanism as the
+// Dashboard widgets (Sortable.create() tracks #accountsList's children
+// live, survives loadAccounts() repopulating the grid).
+function initAccountSortable() {
+    Sortable.create(document.getElementById('accountsList'), {
+        handle: '.account-drag-handle',
+        animation: 150,
+        onEnd: onAccountReorder,
+    });
+}
+
+function onAccountReorder() {
+    const grid = document.getElementById('accountsList');
+    const order = Array.from(grid.children)
+        .map(el => parseInt(el.dataset.id, 10))
+        .filter(id => !isNaN(id));
+    if (!order.length) return;
+
+    fetch('/api/accounts/reorder', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({order})
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                Swal.fire({icon: 'error', title: 'Could not save account order', text: data.message});
+                loadAccounts();
+            }
+        })
+        .catch(() => loadAccounts());
+}
+
+function loadSummary() {
+    fetch(`/api/accounts/summary?user_id=${currentUserId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('netWorthDisplay').textContent = formatMoney(data.net_worth, 'RON');
+                document.getElementById('budgetBalanceDisplay').textContent = formatMoney(data.budget_balance, 'RON');
+            }
+        });
+}
+
+function loadAccounts() {
+    fetch(`/api/accounts/list?user_id=${currentUserId}`)
+        .then(r => r.json())
+        .then(data => {
+            const container = document.getElementById('accountsList');
+            if (!data.success || data.accounts.length === 0) {
+                container.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--th);padding:40px 0;"><p>No accounts yet. Add your first account!</p></div>';
+                document.getElementById('accountCountDisplay').textContent = '0';
+                return;
+            }
+            document.getElementById('accountCountDisplay').textContent = data.accounts.length;
+            container.innerHTML = '';
+            data.accounts.forEach(a => container.appendChild(buildAccountCard(a)));
+            populateTransferSelects(data.accounts);
+        })
+        .catch(err => console.error(err));
+}
+
+function buildAccountCard(a) {
+    const card = document.createElement('div');
+    card.className = 'glass-card';
+    card.dataset.id = a.id;
+    card.style.cssText = 'display:flex;flex-direction:column;';
+    const balClass = a.current_balance >= 0 ? 'amount-positive' : 'amount-negative';
+    const budgeBadge = a.include_in_budget
+        ? '<span class="glass-badge badge-income">In Budget</span>'
+        : '<span class="glass-badge">Excluded</span>';
+    card.innerHTML = `
+        <div class="glass-card-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;align-items:center;gap:6px;min-width:0;">
+                <span class="widget-drag-handle account-drag-handle" title="Drag to reorder">⠿</span>
+                <span class="glass-card-title">${a.name}</span>
+            </div>
+            ${budgeBadge}
+        </div>
+        <div style="padding:16px 20px;flex:1;">
+            <h3 class="${balClass}" style="margin-bottom:4px;">${formatMoney(a.current_balance, a.currency)}</h3>
+            <small style="color:var(--ts);">${a.type.replace('_',' ')} &bull; Initial: ${formatMoney(a.initial_balance, a.currency)}</small>
+            ${a.interest_rate_annual ? `<small style="display:block;color:var(--th);margin-top:2px;">${a.interest_rate_annual}% annual interest, accrued ${a.interest_accrual_frequency}</small>` : ''}
+            ${a.description ? `<p style="color:var(--ts);font-size:0.85rem;margin-top:8px;">${a.description}</p>` : ''}
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid var(--gb);display:flex;gap:8px;margin-top:auto;">
+            <button class="btn btn-sm btn-secondary" onclick="openTransfer(${a.id})" title="Transfer from this account">Transfer</button>
+            <button class="btn btn-sm btn-secondary flex-fill" onclick="openEditAccount(${a.id})">Edit</button>
+            <button class="btn btn-sm btn-secondary flex-fill" onclick="deleteAccount(${a.id}, '${a.name}')">Delete</button>
+        </div>`;
+    return card;
+}
+
+function populateTransferSelects(accounts) {
+    const fromSel = document.getElementById('transferFrom');
+    const toSel = document.getElementById('transferTo');
+    fromSel.innerHTML = '';
+    toSel.innerHTML = '';
+    accounts.forEach(a => {
+        fromSel.innerHTML += `<option value="${a.id}">${a.name} (${formatMoney(a.current_balance, a.currency)})</option>`;
+        toSel.innerHTML += `<option value="${a.id}">${a.name} (${formatMoney(a.current_balance, a.currency)})</option>`;
+    });
+}
+
+function saveAccount() {
+    const form = document.getElementById('addAccountForm');
+    const fd = new FormData(form);
+    const data = {
+        user_id: fd.get('user_id'),
+        name: fd.get('name'),
+        type: fd.get('type'),
+        currency: fd.get('currency'),
+        initial_balance: fd.get('initial_balance'),
+        description: fd.get('description') || '',
+        include_in_budget: fd.get('include_in_budget') === 'on',
+        interest_rate_annual: fd.get('interest_rate_annual') || '',
+        interest_accrual_frequency: fd.get('interest_accrual_frequency') || ''
+    };
+    fetch('/api/accounts/create', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)})
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({icon:'success', title:'Account Created!', timer:1500, showConfirmButton:false});
+                bootstrap.Modal.getInstance(document.getElementById('addAccountModal')).hide();
+                form.reset();
+                document.getElementById('addInterestSection').style.display = 'none';
+                loadAccounts(); loadSummary();
+            } else {
+                Swal.fire({icon:'error', title:'Error', text:data.message});
+            }
+        });
+}
+
+function openEditAccount(accountId) {
+    fetch(`/api/accounts/${accountId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const a = data.account;
+                document.getElementById('editAccountId').value = a.id;
+                document.getElementById('editAccountName').value = a.name;
+                document.getElementById('editAccountType').value = a.type;
+                document.getElementById('editAccountCurrency').value = a.currency || 'RON';
+                document.getElementById('editAccountDesc').value = a.description || '';
+                document.getElementById('editIncludeBudget').checked = a.include_in_budget;
+                document.getElementById('editInterestRate').value = a.interest_rate_annual != null ? a.interest_rate_annual : '';
+                document.getElementById('editInterestFrequency').value = a.interest_accrual_frequency || 'monthly';
+                toggleInterestSection('editAccountType', 'editInterestSection');
+                new bootstrap.Modal(document.getElementById('editAccountModal')).show();
+            }
+        });
+}
+
+function updateAccount() {
+    const form = document.getElementById('editAccountForm');
+    const fd = new FormData(form);
+    const accountId = fd.get('account_id');
+    const data = {
+        user_id: fd.get('user_id'),
+        name: fd.get('name'),
+        type: fd.get('type'),
+        currency: fd.get('currency'),
+        description: fd.get('description') || '',
+        include_in_budget: document.getElementById('editIncludeBudget').checked,
+        interest_rate_annual: fd.get('interest_rate_annual') || '',
+        interest_accrual_frequency: fd.get('interest_accrual_frequency') || ''
+    };
+    fetch(`/api/accounts/${accountId}/update`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)})
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({icon:'success', title:'Updated!', timer:1500, showConfirmButton:false});
+                bootstrap.Modal.getInstance(document.getElementById('editAccountModal')).hide();
+                loadAccounts(); loadSummary();
+            } else {
+                Swal.fire({icon:'error', title:'Error', text:data.message});
+            }
+        });
+}
+
+function deleteAccount(accountId, accountName) {
+    Swal.fire({
+        title: 'Delete Account?',
+        text: `Delete "${accountName}"? This cannot be undone.`,
+        icon: 'warning', showCancelButton: true,
+        confirmButtonColor: '#dc3545', confirmButtonText: 'Delete'
+    }).then(result => {
+        if (result.isConfirmed) {
+            fetch(`/api/accounts/${accountId}/delete`, {method:'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({icon:'success', title:'Deleted!', timer:1500, showConfirmButton:false});
+                        loadAccounts(); loadSummary();
+                    } else {
+                        Swal.fire({icon:'error', title:'Error', text:data.message});
+                    }
+                });
+        }
+    });
+}
+
+function openTransfer(fromAccountId) {
+    if (fromAccountId) {
+        document.getElementById('transferFrom').value = fromAccountId;
+    }
+    new bootstrap.Modal(document.getElementById('transferModal')).show();
+}
+
+function executeTransfer() {
+    const form = document.getElementById('transferForm');
+    const fd = new FormData(form);
+    const data = {
+        user_id: fd.get('user_id'),
+        from_account_id: fd.get('from_account_id'),
+        to_account_id: fd.get('to_account_id'),
+        amount: fd.get('amount'),
+        description: fd.get('description'),
+        transfer_date: fd.get('transfer_date')
+    };
+    fetch('/api/transfers/create', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)})
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({icon:'success', title:'Transfer Complete!', timer:1500, showConfirmButton:false});
+                bootstrap.Modal.getInstance(document.getElementById('transferModal')).hide();
+                form.reset();
+                document.getElementById('transferDate').value = new Date().toISOString().split('T')[0];
+                loadAccounts(); loadSummary();
+            } else {
+                Swal.fire({icon:'error', title:'Error', text:data.message});
+            }
+        });
+}
+</script>
+{% endblock %}

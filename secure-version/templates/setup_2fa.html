@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Set Up Two-Factor Auth - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 mx-auto">
+        <div class="glass-card no-hover p-4 p-md-5">
+            <h2 class="page-title text-center mb-4" style="font-size:1.4rem;">Set Up Two-Factor Authentication</h2>
+
+            <p style="color:var(--ts);">Scan this QR code with Google Authenticator (or any TOTP app), then enter the 6-digit code it shows to confirm.</p>
+
+            <div class="text-center my-4">
+                <img src="{{ qr_data_uri }}" alt="2FA QR code" style="max-width:220px;border-radius:8px;">
+            </div>
+
+            <p style="color:var(--th);font-size:0.8rem;">Can't scan? Enter this key manually: <code>{{ secret }}</code></p>
+
+            <form method="POST" action="{{ url_for('auth.setup_2fa') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group-glass">
+                    <label for="code" class="form-label-glass">Enter the 6-digit code</label>
+                    <input type="text" class="glass-input" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" required placeholder="123456">
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn-glass btn-glass-secondary btn-lg">Confirm & Enable</button>
+                </div>
+            </form>
+
+            <div class="glass-divider my-4"></div>
+
+            <p class="text-center mb-0" style="color:var(--ts);">
+                <a href="{{ url_for('main.profile') }}">Cancel</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

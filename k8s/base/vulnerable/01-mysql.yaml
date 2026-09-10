@@ -1,0 +1,109 @@
+# MySQL for vulnerable-version — Secret, PVC, Deployment, Service
+#
+# Separate namespace, separate PVC, separate Secret from mysql-secure — the
+# weak vulnerable-version credentials can never leak into the secure app's
+# environment even by misconfiguration, since nothing here is shared.
+#
+# The schema init ConfigMap (mysql-vulnerable-init) is generated from
+# database/init-vulnerable*.sql via `kubectl create configmap --from-file=...`
+# (see k8s/README.md) — same reasoning as mysql-secure-init.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-vulnerable-credentials
+  namespace: aura-vulnerable
+type: Opaque
+stringData:
+  MYSQL_ROOT_PASSWORD: VulnRootPass123!
+  MYSQL_USER: aura_user
+  MYSQL_PASSWORD: VulnUserPass123!
+  MYSQL_DATABASE: aura_vulnerable
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-vulnerable-data
+  namespace: aura-vulnerable
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-vulnerable
+  namespace: aura-vulnerable
+  labels:
+    app: mysql-vulnerable
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mysql-vulnerable
+  template:
+    metadata:
+      labels:
+        app: mysql-vulnerable
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          envFrom:
+            - secretRef:
+                name: mysql-vulnerable-credentials
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          startupProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p$(MYSQL_ROOT_PASSWORD)"]
+            periodSeconds: 5
+            failureThreshold: 60 # up to 5 minutes for first-time init before liveness/readiness kick in
+          livenessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p$(MYSQL_ROOT_PASSWORD)"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p$(MYSQL_ROOT_PASSWORD)"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mysql-vulnerable-data
+        - name: init-scripts
+          configMap:
+            name: mysql-vulnerable-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-vulnerable
+  namespace: aura-vulnerable
+spec:
+  selector:
+    app: mysql-vulnerable
+  ports:
+    - port: 3306
+      targetPort: 3306

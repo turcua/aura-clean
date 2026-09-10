@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="abyss">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ app_name }} — CTF Organizer Panel</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/glass.css') }}">
+
+    <style>
+        body {
+            overflow-y: auto;
+            display: block;
+        }
+        .panel-shell {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 48px 20px 80px;
+        }
+        .panel-header {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .panel-header .prompt {
+            color: var(--th);
+            font-size: 0.85rem;
+            letter-spacing: 0.04em;
+        }
+        .panel-header h1 {
+            font-size: 1.9rem;
+            margin: 8px 0 4px;
+            color: var(--tp);
+        }
+        .panel-header p {
+            color: var(--ts);
+            font-size: 0.9rem;
+        }
+        .panel-section {
+            margin: 28px 0;
+            padding: 20px 24px;
+            border: 1px solid var(--rim);
+            border-radius: 14px;
+        }
+        .panel-section h2 {
+            font-size: 1.05rem;
+            color: var(--tp);
+            margin-bottom: 6px;
+        }
+        .panel-section .desc {
+            color: var(--ts);
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+        }
+        .panel-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .panel-row.align-end { align-items: flex-end; }
+        .field-label {
+            display: block;
+            font-size: 0.72rem;
+            color: var(--ts);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 4px;
+        }
+        .field-group { display: flex; flex-direction: column; }
+        /* Mirrors the app's real .btn-primary/.btn-secondary/.btn-danger
+           (glass.css:1521-1625, used 51 times across 11 templates) exactly
+           — translucent tinted background + always-bright var(--tp) text +
+           soft glow shadow, never a solid fill with dark text. Built as
+           custom classes rather than reusing those directly because this
+           page (like scoreboard.html) doesn't load Bootstrap, which those
+           real classes depend on for base button layout.
+
+           .panel-btn carries ONLY structural properties (no background/
+           border/box-shadow) — every variant below is fully self-contained
+           and restates all four color-related properties itself, exactly
+           like the real .btn-primary/.btn-secondary/.btn-danger each do
+           independently. This avoids any base-class-vs-modifier cascade
+           ambiguity; every button also gets an explicit variant class in
+           the HTML (secondary/primary/danger), never left bare. */
+        .panel-btn {
+            display: inline-flex;
+            align-items: center;
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border-radius: calc(var(--rad) - 4px);
+            font-weight: 600;
+            font-family: inherit;
+            font-size: 0.85rem;
+            padding: 9px 18px;
+            cursor: pointer;
+            transition: transform 0.28s cubic-bezier(0.34, 1.50, 0.64, 1),
+                        box-shadow 0.28s ease, background 0.22s ease;
+        }
+        .panel-btn:hover { transform: translateY(-2px) scale(1.02); }
+
+        .panel-btn.secondary {
+            background: var(--gl);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: var(--tp);
+            box-shadow: var(--sh);
+        }
+        .panel-btn.secondary:hover {
+            background: var(--as);
+            color: var(--tp);
+        }
+
+        .panel-btn.primary {
+            background: var(--as);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: var(--tp);
+            box-shadow: 0 2px 12px var(--ag);
+        }
+        .panel-btn.primary:hover {
+            background: rgba(129,140,248,0.20);
+            box-shadow: 0 6px 22px var(--ag);
+            color: var(--tp);
+        }
+
+        .panel-btn.danger {
+            background: rgba(251,113,133,0.12);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: var(--tp);
+            box-shadow: 0 2px 12px rgba(251,113,133,0.10);
+        }
+        .panel-btn.danger:hover {
+            background: rgba(251,113,133,0.22);
+            box-shadow: 0 6px 22px rgba(251,113,133,0.26);
+            color: var(--tp);
+        }
+        .panel-input {
+            background: rgba(255,255,255,0.09);
+            border: 1px solid var(--rim);
+            border-radius: 8px;
+            color: var(--tp);
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            min-width: 160px;
+        }
+        .panel-input:focus { outline: none; border-color: var(--ac); background: rgba(255,255,255,0.14); }
+        .panel-input::placeholder { color: var(--ts); }
+        .mode-pill {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 4px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: var(--gl);
+            color: var(--tp);
+        }
+        .mode-pill.ctf { color: var(--ac); background: var(--as); border-color: var(--ag); }
+        .mode-pill.casual { color: var(--ts); background: var(--gl); }
+        .status-msg {
+            font-size: 0.82rem;
+            margin-top: 8px;
+            min-height: 1.2em;
+        }
+        .status-msg.ok { color: #2ecc71; }
+        .status-msg.err { color: #e74c3c; }
+        .audit-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            margin-top: 10px;
+        }
+        .audit-table th {
+            text-align: left;
+            color: var(--ts);
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.03em;
+            border-bottom: 1px solid var(--rim);
+            padding: 6px 8px;
+        }
+        .audit-table td {
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--rim);
+            color: var(--tp);
+        }
+        .audit-table .flag-val {
+            color: var(--ac);
+            font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+            font-weight: 600;
+        }
+        .audit-empty {
+            color: var(--ts);
+            font-size: 0.82rem;
+        }
+        .audit-tabs {
+            display: flex;
+            gap: 6px;
+            margin-top: 14px;
+            margin-bottom: 4px;
+        }
+        .audit-tab {
+            background: transparent;
+            border: 1px solid var(--rim);
+            border-radius: 999px;
+            color: var(--ts);
+            font-family: inherit;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            padding: 6px 14px;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+        }
+        .audit-tab:hover { color: var(--tp); border-color: var(--ac); }
+        .audit-tab.is-active { color: var(--ac); border-color: var(--ac); background: var(--as); }
+        .vuln-group { margin-bottom: 18px; }
+        .vuln-group-heading {
+            font-size: 0.85rem;
+            color: var(--tp);
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .vuln-group-heading .vuln-id-tag {
+            color: var(--ac);
+            font-weight: 700;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="panel-shell">
+        <div class="panel-header">
+            <div class="prompt">// organizer only — not linked anywhere in the app</div>
+            <h1>CTF Organizer Control Panel</h1>
+            <p>Controls the hidden /scoreboard challenge — mode, victim data, and flag settings.</p>
+        </div>
+
+        <div class="panel-section">
+            <h2>Mode</h2>
+            <div class="desc">Instance-wide. "CTF" reveals real flag text on solve; "Practice" only shows "found!".</div>
+            <div class="panel-row">
+                <span id="currentModePill" class="mode-pill">…</span>
+                <button class="panel-btn secondary" data-mode="casual">Set Practice</button>
+                <button class="panel-btn primary" data-mode="ctf">Set CTF</button>
+            </div>
+            <div id="modeStatus" class="status-msg"></div>
+        </div>
+
+        <div class="panel-section">
+            <h2>Victim Data</h2>
+            <div class="desc">Seed creates 5 fabricated victim accounts (wipes and recreates them if already present). Reset removes everything except testuser/admin, including victims and anything a hacker created during a session.</div>
+            <div class="panel-row">
+                <button id="seedBtn" class="panel-btn primary">Seed Victims</button>
+                <button id="resetBtn" class="panel-btn danger">Reset Everything</button>
+            </div>
+            <div id="dataStatus" class="status-msg"></div>
+        </div>
+
+        <div class="panel-section">
+            <h2>Flag Prefix</h2>
+            <div class="desc">Only affects flags generated after this change — already-issued flags keep their original value.</div>
+            <div class="panel-row align-end">
+                <div class="field-group">
+                    <label class="field-label" for="prefixInput">New prefix</label>
+                    <input id="prefixInput" class="panel-input" type="text" maxlength="20" placeholder="e.g. Aura">
+                </div>
+                <button id="prefixBtn" class="panel-btn primary">Save Prefix</button>
+                <span id="currentPrefix" class="mode-pill"></span>
+            </div>
+            <div id="prefixStatus" class="status-msg"></div>
+        </div>
+
+        <div class="panel-section">
+            <h2>Issued Flags</h2>
+            <div class="desc">Every flag genuinely earned so far, across all users.</div>
+            <div class="panel-row">
+                <button id="refreshAuditBtn" class="panel-btn secondary">Refresh</button>
+            </div>
+            <div class="audit-tabs" id="auditTabs">
+                <button type="button" class="audit-tab is-active" data-audit-view="time">By Time</button>
+                <button type="button" class="audit-tab" data-audit-view="vuln">By Vulnerability</button>
+            </div>
+            <div id="auditContainer"><div class="audit-empty">Loading…</div></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/ctf-admin.js') }}"></script>
+</body>
+</html>

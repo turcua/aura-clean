@@ -1,0 +1,145 @@
+# app-vulnerable — ConfigMap, Secret, Deployment, Service, HorizontalPodAutoscaler
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-vulnerable-config
+  namespace: aura-vulnerable
+data:
+  FLASK_APP: app.py
+  FLASK_ENV: development
+  # prometheus_flask_exporter refuses to register /metrics at all when the
+  # Werkzeug reloader is active (see register_endpoint() in the library) —
+  # unconditionally true here since app.py hardcodes debug=True (intentional
+  # vulnerability, left as-is). This only unblocks the metrics endpoint for
+  # Prometheus scraping; it doesn't touch debug mode itself.
+  DEBUG_METRICS: "1"
+  DATABASE_HOST: mysql-vulnerable
+  DATABASE_PORT: "3306"
+  DATABASE_NAME: aura_vulnerable
+  DATABASE_USER: aura_user
+  # Sprint 23: not a secret, safe to commit — GROQ_API_KEY (the actual
+  # credential) is deliberately NOT here; see k8s/UPGRADE.md's Sprint 23-26
+  # catch-up section for how it's applied out-of-band instead.
+  GROQ_MODEL: llama-3.3-70b-versatile
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-vulnerable-secrets
+  namespace: aura-vulnerable
+type: Opaque
+stringData:
+  DATABASE_PASSWORD: VulnUserPass123!
+  SECRET_KEY: weak-secret-123
+  # GROQ_API_KEY intentionally not committed here — applied out-of-band,
+  # see k8s/UPGRADE.md's Sprint 23-26 catch-up section.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-vulnerable
+  namespace: aura-vulnerable
+  labels:
+    app: app-vulnerable
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: app-vulnerable
+  template:
+    metadata:
+      labels:
+        app: app-vulnerable
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "5000"
+    spec:
+      initContainers:
+        - name: wait-for-mysql
+          image: mysql:8.0
+          command:
+            - sh
+            - -c
+            - >
+              until mysqladmin ping -h mysql-vulnerable -u root -p"$MYSQL_ROOT_PASSWORD" --silent;
+              do echo waiting for mysql-vulnerable; sleep 2; done
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-vulnerable-credentials
+                  key: MYSQL_ROOT_PASSWORD
+      containers:
+        - name: app-vulnerable
+          image: aura-app-vulnerable:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          envFrom:
+            - configMapRef:
+                name: app-vulnerable-config
+            - secretRef:
+                name: app-vulnerable-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-vulnerable
+  namespace: aura-vulnerable
+spec:
+  selector:
+    app: app-vulnerable
+  ports:
+    - port: 80
+      targetPort: 5000
+      name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: app-vulnerable
+  namespace: aura-vulnerable
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: app-vulnerable
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
